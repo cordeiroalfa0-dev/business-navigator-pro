@@ -1,0 +1,23 @@
+{
+  "name": "Sistema San Remo",
+  "short_name": "San Remo",
+  "description": "Sistema de Gestão de Materiais San Remo",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#06b6d4",
+  "icons": [
+    {
+      "src": "logo-sanremo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo-sanremo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

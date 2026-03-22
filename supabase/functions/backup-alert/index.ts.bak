@@ -1,0 +1,242 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+function escapeSQL(val: any): string {
+  if (val === null || val === undefined) return "NULL";
+  if (typeof val === "boolean") return val ? "TRUE" : "FALSE";
+  if (typeof val === "number") return String(val);
+  if (Array.isArray(val))
+    return `ARRAY[${val.map((v) => `'${String(v).replace(/'/g, "''")}'`).join(",")}]::text[]`;
+  if (typeof val === "object")
+    return `'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`;
+  return `'${String(val).replace(/'/g, "''")}'`;
+}
+
+function generateTableSQL(tableName: string, rows: any[]): string {
+  if (!rows || rows.length === 0) return `-- Table ${tableName}: no data\n`;
+  const columns = Object.keys(rows[0]);
+  const lines: string[] = [];
+  lines.push(`-- Table: public.${tableName} (${rows.length} rows)`);
+  for (const row of rows) {
+    const vals = columns.map((col) => escapeSQL(row[col]));
+    lines.push(
+      `INSERT INTO public.${tableName} (${columns.join(", ")}) VALUES (${vals.join(", ")}) ON CONFLICT (id) DO UPDATE SET ${columns
+        .filter((c) => c !== "id")
+        .map((c) => `${c} = EXCLUDED.${c}`)
+        .join(", ")};`
+    );
+  }
+  lines.push(``);
+  return lines.join("\n");
+}
+
+const SYSTEM_TABLES = ["profiles", "user_roles"];
+const DATA_TABLES = [
+  "metas", "acoes_meta", "meta_checkins", "relatorios_gerados", "dados_cadastro",
+  "faturamento", "contas_pagar", "contas_receber",
+  "empreendimentos", "contratos", "materiais",
+];
+const ALL_TABLES = [...SYSTEM_TABLES, ...DATA_TABLES];
+
+async function fetchTableWithTimeout(adminClient: any, table: string, timeoutMs = 8000): Promise<any[]> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const { data, error } = await adminClient.from(table).select("*").abortSignal(controller.signal);
+    if (error) { console.error(`Erro ao ler tabela ${table}:`, error.message); return []; }
+    return data || [];
+  } catch (e) {
+    console.error(`Timeout ou falha na tabela ${table}:`, e.message);
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ✅ Envia alerta por email via função backup-alert
+async function sendAlert(supabaseUrl: string, serviceRoleKey: string, type: string, details: any) {
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/backup-alert`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${serviceRoleKey}`,
+      },
+      body: JSON.stringify({ type, details }),
+    });
+    if (!res.ok) console.error("Falha ao enviar alerta:", await res.text());
+    else console.log("✅ Alerta enviado:", type);
+  } catch (e) {
+    console.error("Erro ao chamar backup-alert:", e.message);
+  }
+}
+
+// ✅ Registra ação no audit_log
+async function auditLog(adminClient: any, userEmail: string, action: string, entity: string, details: any) {
+  try {
+    await adminClient.from("audit_log").insert({
+      user_email: userEmail,
+      action,
+      entity,
+      details,
+    });
+  } catch (e) {
+    console.error("Erro ao registrar audit_log:", e.message);
+  }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+    if (!supabaseUrl || !serviceRoleKey || !anonKey) {
+      const missing = [!supabaseUrl && "SUPABASE_URL", !serviceRoleKey && "SUPABASE_SERVICE_ROLE_KEY", !anonKey && "SUPABASE_ANON_KEY"].filter(Boolean).join(", ");
+      throw new Error(`Missing environment variables: ${missing}`);
+    }
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("Missing Authorization header");
+
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    if (userError || !user) throw new Error("Not authenticated");
+
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // ✅ Verificar admin direto na tabela user_roles
+    const { data: roleRow, error: roleError } = await adminClient
+      .from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
+
+    if (roleError) throw new Error(`Authorization check failed: ${roleError.message}`);
+    if (roleRow?.role !== "admin") {
+      console.warn(`Acesso negado para: ${user.email}`);
+      throw new Error("Not authorized — admin only");
+    }
+
+    let body: any;
+    try { body = await req.json(); } catch { throw new Error("Invalid JSON body"); }
+    const action = body?.action;
+
+    // ─── EXPORT ────────────────────────────────────────────────────────────────
+    if (action === "export") {
+      console.log(`[EXPORT] Iniciado por: ${user.email}`);
+
+      try {
+        const tableData: Record<string, any[]> = {};
+        await Promise.all(
+          ALL_TABLES.map(async (table) => {
+            tableData[table] = await fetchTableWithTimeout(adminClient, table);
+            console.log(`[EXPORT] ${table}: ${tableData[table].length} registros`);
+          })
+        );
+
+        const { data: authData, error: authAdminError } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+        if (authAdminError) console.error("Erro ao listar auth.users:", authAdminError.message);
+        const authUsers = authData?.users || [];
+
+        const sqlParts: string[] = [
+          `-- SAN REMO ERP — Database Backup (SQL)`,
+          `-- Generated: ${new Date().toISOString()}`,
+          `-- By: ${user.email}`,
+          `BEGIN;`,
+        ];
+        for (const table of ALL_TABLES) sqlParts.push(generateTableSQL(table, tableData[table]));
+        sqlParts.push(`COMMIT;`);
+
+        const metadata: Record<string, number> = {};
+        for (const table of ALL_TABLES) metadata[`total_${table}`] = tableData[table].length;
+        metadata.total_users = authUsers.length;
+
+        const total = Object.values(metadata).reduce((a, b) => a + b, 0);
+
+        const backup = {
+          version: "4.3",
+          created_at: new Date().toISOString(),
+          created_by: user.email,
+          data: {
+            ...tableData,
+            auth_users: authUsers.map((u) => ({
+              id: u.id, email: u.email, user_metadata: u.user_metadata, created_at: u.created_at,
+            })),
+          },
+          sql_dump: sqlParts.join("\n"),
+          metadata,
+        };
+
+        // ✅ Audit log
+        await auditLog(adminClient, user.email!, "backup_export", "backup-system", { total, tables: ALL_TABLES.length });
+
+        // ✅ Alerta de sucesso
+        await sendAlert(supabaseUrl, serviceRoleKey, "backup_success", { total, user: user.email });
+
+        console.log(`[EXPORT] ✅ Concluído. Total: ${total} registros`);
+
+        return new Response(JSON.stringify(backup, null, 2), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+
+      } catch (exportError) {
+        // ✅ Alerta de falha
+        await sendAlert(supabaseUrl, serviceRoleKey, "backup_error", { error: exportError.message, user: user.email });
+        throw exportError;
+      }
+
+    // ─── IMPORT ────────────────────────────────────────────────────────────────
+    } else if (action === "import") {
+      const backupData = body.backup;
+      if (!backupData?.data) throw new Error("Invalid backup format — missing 'data' field");
+
+      const scope: string = body.scope || "all";
+      const restored: Record<string, number> = {};
+
+      const upsertTable = async (name: string, rows: any[]) => {
+        if (!rows || rows.length === 0) { restored[name] = 0; return; }
+        const BATCH_SIZE = 500;
+        let count = 0;
+        for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+          const batch = rows.slice(i, i + BATCH_SIZE);
+          const { error } = await adminClient.from(name).upsert(batch, { onConflict: "id" });
+          if (error) console.error(`Erro ao importar lote em ${name}:`, error.message);
+          else count += batch.length;
+        }
+        restored[name] = count;
+        console.log(`[IMPORT] ${name}: ${count}/${rows.length} restaurados`);
+      };
+
+      const tablesToRestore = scope === "system" ? SYSTEM_TABLES : scope === "database" ? DATA_TABLES : ALL_TABLES;
+      for (const table of tablesToRestore) await upsertTable(table, backupData.data[table] || []);
+
+      const total = Object.values(restored).reduce((a, b) => a + b, 0);
+
+      // ✅ Audit log
+      await auditLog(adminClient, user.email!, "backup_import", "backup-system", { scope, total, restored });
+
+      return new Response(JSON.stringify({ success: true, scope, restored }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+
+    } else {
+      throw new Error(`Invalid action '${action}'. Use 'export' or 'import'.`);
+    }
+
+  } catch (error) {
+    console.error("ERRO CRÍTICO NA EDGE FUNCTION:", error.message);
+    const isAuthError = error.message.includes("Not authenticated") || error.message.includes("Not authorized") || error.message.includes("Missing Authorization");
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: isAuthError ? 401 : 400,
+    });
+  }
+});

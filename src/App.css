@@ -1,0 +1,100 @@
+/* ─── Reset do #root — sem max-width fixo que quebra o layout full-screen ─── */
+#root {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+/* ─── Base responsiva ──────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* Prevent font size inflation on mobile */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Use dvh for dynamic viewport (accounts for mobile browser chrome) */
+  height: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  overflow-x: hidden; /* Never horizontal scroll */
+}
+
+/* ─── Tables — always scrollable horizontally ──────────────────────────────── */
+table {
+  min-width: 100%;
+}
+
+.table-wrapper,
+.overflow-x-auto {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ─── Scrollbar styling ────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* ─── Dialog / Modal — full-screen on mobile ───────────────────────────────── */
+@media (max-width: 640px) {
+  [data-radix-dialog-content] {
+    width: calc(100vw - 2rem) !important;
+    max-width: none !important;
+    margin: 1rem !important;
+  }
+
+  [data-radix-dialog-overlay] {
+    padding: 1rem;
+  }
+}
+
+/* ─── Prevent content overflow at any zoom ─────────────────────────────────── */
+img, video, canvas, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ─── Touch targets — minimum 44px for accessibility ──────────────────────── */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  a,
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ─── Print ─────────────────────────────────────────────────────────────────── */
+@media print {
+  .no-print,
+  aside,
+  header,
+  nav {
+    display: none !important;
+  }
+  main {
+    width: 100% !important;
+  }
+}
