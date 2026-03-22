@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import {
   Loader2, Download, RefreshCw, BarChart3, Target, HardHat, DollarSign,
-  Building2, Warehouse, Trophy, FileText, Calendar, Filter, BookMarked,
+  Building2, Warehouse, Trophy, FileText, Calendar, Filter, Bookmark,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -31,7 +31,7 @@ const MODULOS=[
   {key:"obras",        label:"Obras e Empreendimentos",   icon:Building2 },
   {key:"almoxarifado", label:"Almoxarifado",              icon:Warehouse },
   {key:"ranking",      label:"Ranking de Equipe",         icon:Trophy    },
-  {key:"diario",       label:"Diário de Obra (RDO)",      icon:BookMarked},
+  {key:"diario",       label:"Diário de Obra (RDO)",      icon:Bookmark},
 ];
 
 const fmt  = (n:number)=>n.toLocaleString("pt-BR");
@@ -421,7 +421,7 @@ function RelDiario({data}:{data:any}){
   const COR_DIARIO={gold:"hsl(42,65%,56%)",blue:"hsl(210,80%,48%)",teal:"hsl(174,62%,47%)",red:"hsl(0,72%,51%)"};
   return(
     <div className="space-y-4">
-      <SecTitle icon={BookMarked} title="Diário de Obra (RDO)" color={COR_DIARIO.gold}/>
+      <SecTitle icon={Bookmark} title="Diário de Obra (RDO)" color={COR_DIARIO.gold}/>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KpiCard label="Total de RDOs"         value={total}           color={COR_DIARIO.blue}/>
         <KpiCard label="Trabalhadores (total)"  value={totalTrab}       color={COR_DIARIO.gold}/>
