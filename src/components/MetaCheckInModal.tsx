@@ -82,16 +82,15 @@ export function MetaCheckInModal({
 
       // Inserir check-in
       const { error: checkInError } = await supabase
-        .from("meta_checkins_v2")
+        .from("meta_checkins")
         .insert({
           meta_id: metaId,
           user_id: user.id,
           user_name: profile?.full_name || user.email,
-          percentual_anterior: percentualAtual,
-          percentual_novo: percentualNovo,
+          valor_anterior: percentualAtual,
+          valor_novo: percentualNovo,
           comentario: comentario || null,
-          evidencia_urls: fotoUrls,
-          tags: tags,
+          imagens: fotoUrls,
         });
 
       if (checkInError) throw checkInError;

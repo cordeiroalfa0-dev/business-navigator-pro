@@ -27,7 +27,7 @@ const sections: ManualSection[] = [
       },
       {
         title: "Níveis de Acesso",
-        body: `O sistema possui três níveis:\n\n**Admin**\n- Acesso total — todos os módulos, backup, usuários\n- Único que pode excluir usuários e acessar este manual\n\n**Master**\n- Dashboard completo com financeiro\n- Criar e editar metas, relatórios, importação, cadastro\n- Criar e editar obras de execução\n- Não pode gerenciar usuários nem backup\n\n**Normal**\n- Dashboard resumido (sem financeiro, sem mapa de saúde)\n- Visualizar metas (sem editar)\n- Visualizar obras, empreendimentos, financeiro\n- Não pode criar, editar ou excluir nada`,
+        body: `O sistema possui quatro níveis:\n\n**Admin**\n- Acesso total — todos os módulos, backup, usuários\n- Único que pode excluir usuários e acessar este manual\n\n**Master**\n- Dashboard completo com financeiro\n- Criar e editar metas, relatórios, importação, cadastro\n- Criar e editar obras de execução\n- Não pode gerenciar usuários nem backup\n\n**Normal**\n- Dashboard resumido (sem financeiro, sem mapa de saúde)\n- Visualizar metas (sem editar) e Meu Espaço\n- Não pode criar, editar ou excluir nada\n\n**Almoxarife** (novo)\n- Acesso exclusivo ao módulo Almoxarifado\n- Gerencia ativos REMO, transferências, destinos e fotos\n- Não vê metas, financeiro, obras ou relatórios\n- Ideal para funcionários operacionais do estoque`,
       },
     ],
   },
@@ -79,6 +79,27 @@ const sections: ManualSection[] = [
   },
   {
     id: "execucao",
+    title: "Metas por Fase de Obra",
+    icon: Target,
+    topics: [
+      {
+        id: 8100,
+        title: "Criar metas automáticas por fase",
+        body: `Na página **Execução de Obra**, cada obra possui o botão **"+ Metas da Fase"**.\n\nAo clicar, aparece a lista de metas sugeridas para a fase atual da obra (ex: para Fundação aparecem: sondagem, estacas, concretagem...).\n\n**Fluxo completo:**\n1. Selecione/deselecione metas clicando nelas\n2. Informe o valor objetivo (m², unidades, kg) para cada uma selecionada\n3. Clique em **"Criar Metas Selecionadas"**\n4. Confirme no modal de revisão\n\nAs metas são criadas no módulo Metas com:\n- Obra vinculada (obra_id)\n- Fase/etapa preenchida\n- Responsável da obra\n- Prazo da obra\n- Categoria e prioridade da sugestão`,
+      },
+      {
+        id: 8101,
+        title: "Gerenciar sugestões por fase",
+        body: `Clique em **"Gerenciar Sugestões"** no topo da página Execução de Obra.\n\n**Ações disponíveis:**\n- **Adicionar** nova sugestão: nome, descrição, unidade, objetivo padrão, prioridade, categoria\n- **Editar** sugestão existente clicando no lápis\n- **Ativar/Desativar** sugestões (toggle verde/cinza) sem perder os dados\n- **Excluir** permanentemente\n\nAs sugestões ficam salvas no banco (tabela metas_sugestoes_fase) e são compartilhadas entre todos os usuários admin/master.`,
+      },
+      {
+        id: 8102,
+        title: "Editar e excluir metas vinculadas à obra",
+        body: `No card de cada obra, clique no badge roxo **"X metas ▼"** para expandir a lista.\n\nCada meta exibe: nome, barra de progresso, status e prioridade.\n\n**Para editar inline** (sem sair da tela):\n1. Clique no lápis da meta\n2. Edite nome, valor atual, objetivo, unidade ou prioridade\n3. O status é recalculado automaticamente\n4. Clique em "Salvar"\n\n**Para excluir:** Clique na lixeira. A meta é removida do banco e some do módulo Metas também.`,
+      },
+    ],
+  },
+  {
     title: "Execução de Obra",
     icon: HardHat,
     content: [
@@ -235,8 +256,38 @@ const sections: ManualSection[] = [
       },
     ],
   },
+  {
+    id: "diario_obra",
+    title: "Diário de Obra (RDO)",
+    icon: "📋",
+    content: [
+      {
+        title: "O que é o Diário de Obra?",
+        body: `O Diário de Obra é o Relatório Diário de Obra (RDO) — documento oficial que registra todas as atividades, efetivo e condições de uma obra em cada dia.\n\n**Acesso:** Menu lateral → Diário de Obra\n\n**Perfis com acesso:** Admin, Master e Engenheiro (criação). Normal e Almoxarife (visualização).`,
+      },
+      {
+        title: "Campos do RDO",
+        body: `Cada RDO contém:\n\n- **Obra vinculada** — ligação com a Execução de Obra (opcional)\n- **Data** — dia do registro\n- **Clima** — manhã e tarde (Bom, Nublado, Chuvoso, Chuva Forte, Tempestade)\n- **Temperatura** — mínima e máxima do dia\n- **Efetivo** — funções, quantidades e horas trabalhadas\n- **Atividades do dia** — campo obrigatório\n- **Ocorrências** — acidentes, paralisações, problemas\n- **Equipamentos** — máquinas e ferramentas utilizadas\n- **Materiais** — insumos consumidos no dia\n- **Fotos** — até 5 imagens por RDO`,
+      },
+      {
+        title: "Exportação do RDO",
+        body: `Cada RDO pode ser exportado como arquivo TXT:\n\n1. Na lista, clique no ícone ⬇ do registro\n2. Ou abra o RDO e clique em "Exportar TXT"\n\nO arquivo gerado contém todas as informações formatadas no padrão de Relatório Diário de Obra, incluindo URLs das fotos.`,
+      },
+      {
+        title: "Perfil Engenheiro",
+        body: `O perfil **Engenheiro** foi criado especificamente para responsáveis de obra que precisam registrar RDOs.\n\n**Acesso do Engenheiro:**\n- Dashboard\n- Meu Espaço\n- Diário de Obra (criar e visualizar)\n- Execução de Obra (visualizar)\n- Manual\n\n**Como criar:** Usuários → Novo Usuário → Tipo: Engenheiro`,
+      },
+      {
+        title: "Relatórios do Diário de Obra",
+        body: `Os dados do RDO aparecem no módulo Relatórios:\n\n- **KPIs:** total de RDOs, trabalhadores, homem-hora e ocorrências\n- **Gráfico de clima:** distribuição do clima predominante\n- **Tabela completa** com todos os registros filtráveis por período\n\nNo Relatório Completo, o Diário de Obra é incluído automaticamente.`,
+      },
+      {
+        title: "Ativar o módulo",
+        body: `O módulo Diário de Obra precisa ser ativado:\n\n1. Menu Admin → Módulos\n2. Encontre "Diário de Obra"\n3. Ative para os usuários desejados\n\nApós ativação, o item "Diário de Obra" aparece no menu lateral.`,
+      },
+    ],
+  },
 ];
-
 export default function ManualAdmin() {
   const { isAdmin, loading } = useAuth();
   const { theme } = useTheme();

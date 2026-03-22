@@ -196,7 +196,6 @@ export const relatorioService = {
     const fileName = `relatorio-san-remo-${timestamp}.pdf`
     doc.save(fileName)
     
-    console.log(`PDF gerado com sucesso: ${fileName}`)
   },
 
   exportarExcel(materiais: Material[], nomeArquivo: string, userEmail?: string) {
@@ -277,6 +276,5 @@ export const relatorioService = {
     const fileName = `${nomeArquivo}-${timestamp}.xlsx`
     XLSX.writeFile(wb, fileName)
     
-    console.log(`Excel gerado com sucesso: ${fileName}`)
   }
 }

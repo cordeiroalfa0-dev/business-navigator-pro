@@ -91,7 +91,7 @@ export default function DashboardMetas() {
   ).map(([cat, v]) => ({ cat, ...v, pct: Math.round((v.atingidas / v.total) * 100) }))
    .sort((a, b) => b.total - a.total).slice(0, 6);
 
-  const radialData = [{ name: "Conclusão", value: pct, fill: pct >= 75 ? "hsl(152, 60%, 38%)" : pct >= 50 ? "hsl(207, 89%, 48%)" : pct >= 25 ? "hsl(45, 100%, 51%)" : "hsl(0, 72%, 51%)" }];
+  const radialData = [{ name: "Conclusão", value: pct, fill: pct >= 75 ? "hsl(152, 60%, 38%)" : pct >= 50 ? "hsl(207, 89%, 48%)" : pct >= 25 ? "hsl(42, 65%, 56%)" : "hsl(0, 72%, 51%)" }];
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[40vh] text-muted-foreground gap-2">

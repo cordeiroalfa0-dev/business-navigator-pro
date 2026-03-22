@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Target, ClipboardPlus, FileText, FileSpreadsheet,
   DollarSign, Building2, Users, ChevronDown, ChevronRight, Menu, X,
   Search, LogOut, BarChart3, HardDrive, BookOpen, Sun, Moon, Contrast,
-  HardHat, User, Trophy, Zap, Code2, Warehouse, Settings2, ClipboardList,
+  HardHat, User, Trophy, Zap, Code2, Warehouse, Settings2, ClipboardList, BookMarked,
   ShieldCheck, Shield, EyeOff,
 } from "lucide-react";
 import logoSanRemo from "@/assets/logo-san-remo.png";
@@ -36,6 +36,7 @@ const modules: ModuleItem[] = [
   { label: "Cadastro de Dados",icon: ClipboardPlus,   path: "/cadastro",       section: "principal", moduleKey: "cadastro" },
   { label: "Importar Excel",   icon: FileSpreadsheet, path: "/importacao",     section: "principal", moduleKey: "importacao" },
   { label: "Almoxarifado",     icon: Warehouse,       path: "/almoxarifado",   section: "principal", moduleKey: "almoxarifado" },
+  { label: "Diário de Obra",   icon: BookMarked,      path: "/diario-obra",    section: "principal", moduleKey: "diario_obra" },
   {
     label: "Financeiro", icon: DollarSign, path: "/contabilidade",
     section: "principal", moduleKey: "financeiro",
@@ -67,11 +68,14 @@ const modules: ModuleItem[] = [
   { label: "Desenvolvimento",icon: Code2,          path: "/desenvolvimento", section: "admin" },
 ];
 
-const ROLE_CFG = {
-  admin:  { label: "Admin",  icon: ShieldCheck, color: "text-red-400" },
-  master: { label: "Master", icon: Shield,      color: "text-yellow-400" },
-  normal: { label: "Normal", icon: User,        color: "text-blue-400" },
-} as const;
+// ── FIX: engenheiro adicionado ao ROLE_CFG ────────────────────────────────
+const ROLE_CFG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
+  admin:      { label: "Admin",      icon: ShieldCheck, color: "text-red-400"    },
+  master:     { label: "Master",     icon: Shield,      color: "text-amber-400"  },
+  normal:     { label: "Normal",     icon: User,        color: "text-sky-400"    },
+  almoxarife: { label: "Almoxarife", icon: Warehouse,   color: "text-teal-400"   },
+  engenheiro: { label: "Engenheiro", icon: HardHat,     color: "text-orange-400" },
+};
 
 // ── Componente ─────────────────────────────────────────────────────────────
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -126,7 +130,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     loadModules();
 
-    // Recarrega em tempo real quando app_modules ou user_module_permissions mudar
     const ch1 = supabase
       .channel("menu_app_modules")
       .on("postgres_changes", { event: "*", schema: "public", table: "app_modules" }, loadModules)
@@ -158,14 +161,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // ── Visibilidade do módulo ─────────────────────────────────────────────
   const isVisible = useCallback((mod: ModuleItem): boolean => {
+    // Almoxarife vê apenas: dashboard, meu espaço, almoxarifado e manual
+    if (userRole === "almoxarife") {
+      return mod.path === "/" ||
+             mod.path === "/meu-espaco" ||
+             mod.path === "/almoxarifado" ||
+             mod.path === "/manual";
+    }
+    // Engenheiro vê: dashboard, meu espaço, diário de obra, execução e manual
+    if (userRole === "engenheiro") {
+      return mod.path === "/" ||
+             mod.path === "/meu-espaco" ||
+             mod.path === "/diario-obra" ||
+             mod.path === "/execucao" ||
+             mod.path === "/manual";
+    }
     if (mod.section === "admin") return isAdmin;
     if (mod.path === "/" || mod.path === "/meu-espaco" || mod.path === "/manual") return true;
     if (isAdmin) return true;
     if (mod.moduleKey) return enabledModules[mod.moduleKey] === true;
     return true;
-  }, [isAdmin, enabledModules]);
+  }, [isAdmin, userRole, enabledModules]);
 
-  // Admin enxerga tudo mas com indicador visual para módulos desativados
   const isModuleDisabled = (mod: ModuleItem): boolean =>
     isAdmin && !!mod.moduleKey && modulesLoaded && enabledModules[mod.moduleKey] === false;
 
@@ -188,7 +205,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     "Dashboard",
   [visibleModules, isActive]);
 
-  const roleInfo = userRole ? ROLE_CFG[userRole] : null;
+  // ── FIX: fallback seguro para roleInfo ────────────────────────────────
+  const roleInfo = userRole ? (ROLE_CFG[userRole] ?? null) : null;
 
   // ── Item de menu reutilizável ──────────────────────────────────────────
   const MenuItem = ({ mod }: { mod: ModuleItem }) => {
@@ -262,26 +280,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 h-12 border-b border-sidebar-border shrink-0">
-        <img src={logoSanRemo} alt="San Remo" className="w-7 h-7 object-contain rounded" />
+        <img src={logoSanRemo} alt="San Remo" className="w-8 h-8 object-contain" />
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-sidebar-primary tracking-tight leading-tight">
+          <p className="text-[13px] font-semibold tracking-tight leading-tight"
+             style={{ color: "hsl(42, 65%, 56%)" }}>
             San Remo
           </p>
           <p className="text-[9px] text-sidebar-muted tracking-widest uppercase leading-tight">
-            Business Navigator
+            Construtora
           </p>
         </div>
       </div>
 
-      {/* Navegação — lista única */}
+      {/* Navegação */}
       <nav className="flex-1 overflow-y-auto py-2 px-2">
-
-        {/* Módulos principais */}
         <div className="space-y-px">
           {principalMods.map(mod => <MenuItem key={mod.path} mod={mod} />)}
         </div>
 
-        {/* Separador + bloco Admin */}
         {adminMods.length > 0 && (
           <>
             <div className="mx-3 my-3 border-t border-sidebar-border opacity-40" />
@@ -356,10 +372,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Conteúdo principal */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-        {/* Topbar estilo Power BI */}
+        {/* Topbar */}
         <header className="h-11 pbi-header flex items-center px-3 gap-2 shrink-0 z-30">
 
-          {/* Toggle sidebar */}
           <button
             onClick={() => {
               if (window.innerWidth < 1024) setMobileOpen(true);
@@ -370,7 +385,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Menu className="w-4 h-4 text-white/70" />
           </button>
 
-          {/* Página atual */}
           <div className="flex items-center gap-1.5">
             <BarChart3 className="w-4 h-4 text-primary" />
             <span className="text-[13px] font-semibold text-white">{currentPage}</span>
@@ -378,7 +392,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           <div className="flex-1" />
 
-          {/* Busca */}
           <div className="hidden sm:flex items-center gap-1 bg-white/10 rounded px-2.5 py-1.5 max-w-xs">
             <Search className="w-3.5 h-3.5 text-white/50" />
             <input
@@ -391,7 +404,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             />
           </div>
 
-          {/* Seletor de tema */}
           <div className="flex items-center gap-0.5 bg-white/10 rounded-lg p-0.5">
             {([
               { value: "light",  icon: Sun,      label: "Claro",  color: "text-yellow-300" },
@@ -417,22 +429,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             ))}
           </div>
 
-          {/* Notificações admin */}
           <AdminNotifications />
 
-          {/* Avatar no header */}
           <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-[10px] font-bold text-primary-foreground ml-1">
             {profile?.full_name?.slice(0, 2).toUpperCase() || "SR"}
           </div>
         </header>
 
-        {/* Canvas principal */}
         <main className="flex-1 overflow-y-auto pbi-canvas p-2 sm:p-4 lg:p-5">
           {children}
         </main>
       </div>
 
-      {/* Central de ajuda flutuante */}
       <HelpChat />
     </div>
   );

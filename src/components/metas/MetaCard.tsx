@@ -19,7 +19,7 @@ export const MetaCard: React.FC<MetaCardProps> = ({
   meta, acoes, checkins, childMetas, onCheckin, onEdit 
 }) => {
   const qual = isQualitativa(meta);
-  const pct = qual ? 0 : Math.min(Math.round((meta.atual / meta.objetivo) * 100), 100);
+  const pct = qual ? 0 : Math.min(Math.round((meta.objetivo > 0 ? meta.atual / meta.objetivo : 0) * 100), 100);
   const pCfg = prioridadeConfig[meta.prioridade];
   const sCfg = statusConfig[meta.status];
   const metaAcoes = acoes.filter((a) => a.meta_id === meta.id);

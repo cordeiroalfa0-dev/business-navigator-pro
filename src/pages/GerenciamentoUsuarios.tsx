@@ -38,7 +38,6 @@ export const GerenciamentoUsuarios: React.FC = () => {
       // ou que o usuário precise sincronizar os usuários existentes.
       setProfiles(data || []);
       if (!data || data.length === 0) {
-        console.log('Nenhum perfil encontrado na tabela profiles.');
       }
     } catch (err: any) {
       console.error('Erro ao carregar usuários:', err);

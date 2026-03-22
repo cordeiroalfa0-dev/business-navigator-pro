@@ -18,7 +18,7 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
 const COR = {
-  green:"#16a34a",yellow:"#ca8a04",red:"#dc2626",
+  green:"#16a34a",yellow:"#B8922A",red:"#dc2626",
   blue:"#2563eb",purple:"#7c3aed",cyan:"#0891b2",orange:"#ea580c",gray:"#6b7280",
 };
 const PIE_COLORS=[COR.green,COR.yellow,COR.red,COR.blue,COR.purple,COR.cyan];
@@ -31,6 +31,7 @@ const MODULOS=[
   {key:"obras",        label:"Obras e Empreendimentos",   icon:Building2 },
   {key:"almoxarifado", label:"Almoxarifado",              icon:Warehouse },
   {key:"ranking",      label:"Ranking de Equipe",         icon:Trophy    },
+  {key:"diario",       label:"Diário de Obra (RDO)",      icon:BookMarked},
 ];
 
 const fmt  = (n:number)=>n.toLocaleString("pt-BR");
@@ -121,7 +122,7 @@ function RelMetas({data}:{data:any}){
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[11px]">
-            <thead><tr className="border-b border-border">{["Nome","Categoria","Responsável","Progresso","Status"].map(h=><th key={h} className="py-2 px-3 text-left font-medium text-muted-foreground">{h}</th>)}</tr></thead>
+            <thead><tr className="border-b border-border">{["Nome","Categoria","Responsável","Progresso","Status","Obra"].map(h=><th key={h} className="py-2 px-3 text-left font-medium text-muted-foreground">{h}</th>)}</tr></thead>
             <tbody>
               {metas.slice(0,30).map((m:any)=>{
                 const p=m.objetivo>0?Math.min(Math.round((m.atual/m.objetivo)*100),100):0;
@@ -144,6 +145,7 @@ function RelMetas({data}:{data:any}){
                         {slMap[m.status]||m.status}
                       </span>
                     </td>
+                    <td className="py-1.5 px-3 text-muted-foreground text-[10px]">{m.local_obra||"—"}</td>
                   </tr>
                 );
               })}
@@ -159,6 +161,7 @@ function RelMetas({data}:{data:any}){
 function RelExecucao({data}:{data:any}){
   if(!data)return null;
   const obras=data.obras??[];
+  const metasObra=data.metasObra??[];
   const porEtapa=Object.entries(obras.reduce((acc:any,o:any)=>{acc[o.etapa_atual]=(acc[o.etapa_atual]||0)+1;return acc;},{})).map(([name,value])=>({name,value}));
   const media=obras.length>0?Math.round(obras.reduce((s:number,o:any)=>s+(o.progresso||0),0)/obras.length):0;
   return(
@@ -168,6 +171,7 @@ function RelExecucao({data}:{data:any}){
         <KpiCard label="Total de Obras"   value={obras.length} color={COR.blue}/>
         <KpiCard label="Progresso Médio"  value={`${media}%`}  color={COR.green}/>
         <KpiCard label="Concluídas"       value={obras.filter((o:any)=>o.progresso>=100).length} color={COR.cyan}/>
+        <KpiCard label="Metas Vinculadas" value={metasObra.length} color={COR.purple}/>
       </div>
       {porEtapa.length>0&&(
         <div className="erp-card p-4 rounded-lg border border-border">
@@ -405,6 +409,73 @@ function RelAlmox({data}:{data:any}){
 }
 
 // ── RANKING ───────────────────────────────────────────────────────────────────
+function RelDiario({data}:{data:any}){
+  const{diarios=[]}=data;
+  const total=diarios.length;
+  const totalTrab=diarios.reduce((s:number,d:any)=>s+(d.total_trabalhadores||0),0);
+  const totalHH=diarios.reduce((s:number,d:any)=>s+Number(d.horas_trabalhadas||0),0);
+  const comOcorr=diarios.filter((d:any)=>d.ocorrencias?.trim()).length;
+  const porClima=diarios.reduce((acc:any,d:any)=>{
+    acc[d.clima_manha]=(acc[d.clima_manha]||0)+1; return acc;
+  },{});
+  const COR_DIARIO={gold:"hsl(42,65%,56%)",blue:"hsl(210,80%,48%)",teal:"hsl(174,62%,47%)",red:"hsl(0,72%,51%)"};
+  return(
+    <div className="space-y-4">
+      <SecTitle icon={BookMarked} title="Diário de Obra (RDO)" color={COR_DIARIO.gold}/>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <KpiCard label="Total de RDOs"         value={total}           color={COR_DIARIO.blue}/>
+        <KpiCard label="Trabalhadores (total)"  value={totalTrab}       color={COR_DIARIO.gold}/>
+        <KpiCard label="Homem-hora total"       value={`${totalHH}h`}   color={COR_DIARIO.teal}/>
+        <KpiCard label="Com ocorrências"        value={comOcorr}        color={COR_DIARIO.red}/>
+      </div>
+      {Object.keys(porClima).length>0&&(
+        <div className="erp-card p-4 rounded-lg border border-border">
+          <p className="text-[11px] font-semibold text-foreground mb-3">Clima predominante (manhã)</p>
+          <div className="space-y-1.5">
+            {Object.entries(porClima).map(([k,v]:any)=>(
+              <div key={k} className="flex items-center gap-2 text-[11px]">
+                <span className="w-24 text-muted-foreground capitalize">{k.replace("_"," ")}</span>
+                <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
+                  <div className="h-full rounded-full" style={{width:`${total>0?Math.round((v/total)*100):0}%`,background:COR_DIARIO.gold}}/>
+                </div>
+                <span className="text-muted-foreground w-8 text-right">{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="erp-card rounded-lg border border-border overflow-hidden">
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="border-b border-border bg-secondary/50">
+              {["Data","Obra","Trabalhadores","H/H","Clima","Ocorrência"].map(h=>(
+                <th key={h} className="py-2 px-3 text-left font-medium text-muted-foreground">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {diarios.slice(0,50).map((d:any)=>(
+              <tr key={d.id} className="border-b border-border/50 hover:bg-secondary/50">
+                <td className="py-1.5 px-3 text-muted-foreground">{d.data_registro}</td>
+                <td className="py-1.5 px-3 font-medium max-w-[140px] truncate">{d.obra_nome}</td>
+                <td className="py-1.5 px-3">{d.total_trabalhadores}</td>
+                <td className="py-1.5 px-3">{d.horas_trabalhadas}h</td>
+                <td className="py-1.5 px-3 capitalize">{d.clima_manha?.replace("_"," ")}</td>
+                <td className="py-1.5 px-3">
+                  {d.ocorrencias?.trim()
+                    ? <span style={{color:"hsl(0,72%,51%)",fontSize:10}}>Sim</span>
+                    : <span className="text-muted-foreground text-[10px]">Não</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {diarios.length>50&&<p className="text-[10px] text-muted-foreground text-center py-2">Mostrando 50 de {diarios.length} registros</p>}
+      </div>
+    </div>
+  );
+}
+
 function RelRanking({data}:{data:any}){
   if(!data)return null;
   const ranking=data.ranking??[];
@@ -491,7 +562,13 @@ export default function Relatorios(){
 
   const loadExecucao=useCallback(async()=>{
     const{data:obras}=await applyDate(supabase.from("execucao_obras").select("*").order("created_at",{ascending:false}));
-    setDadosExecucao({obras:obras??[]});
+    const obraIds=(obras??[]).map((o:any)=>o.id).filter(Boolean);
+    let metasObra:any[]=[];
+    if(obraIds.length>0){
+      const{data:mo}=await supabase.from("metas").select("id,nome,status,etapa,obra_id,responsavel").in("obra_id",obraIds);
+      metasObra=mo??[];
+    }
+    setDadosExecucao({obras:obras??[],metasObra});
   },[dataInicio,dataFim]);
 
   const loadFinanceiro=useCallback(async()=>{
@@ -519,6 +596,14 @@ export default function Relatorios(){
       supabase.from("ativos_destinos").select("*"),
     ]);
     setDadosAlmox({ativos:ativos??[],envios:envios??[],destinos:destinos??[]});
+  },[dataInicio,dataFim]);
+
+  const loadDiario=useCallback(async()=>{
+    const[{data:diarios},{data:efetivo}]=await Promise.all([
+      applyDate(supabase.from("diario_obra").select("*").order("data_registro",{ascending:false}),"data_registro"),
+      supabase.from("diario_obra_efetivo").select("*"),
+    ]);
+    setDadosDiario({diarios:diarios??[],efetivo:efetivo??[]});
   },[dataInicio,dataFim]);
 
   const loadRanking=useCallback(async()=>{

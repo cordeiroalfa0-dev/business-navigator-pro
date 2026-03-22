@@ -25,6 +25,7 @@ import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import MetaFileUpload from "@/components/MetaFileUpload";
 import { MetaAcoesKanban } from "@/components/MetaAcoesKanban";
 import { useMetaCampos } from "@/hooks/useMetaCampos";
+import { useAudit } from "@/hooks/useAudit";
 import { CampoCustomizadoSelect } from "@/components/metas/CampoCustomizadoSelect";
 
 interface Meta {
@@ -196,7 +197,7 @@ interface CheckIn {
 }
 
 const coresMeta = [
-  "hsl(207, 89%, 48%)", "hsl(45, 100%, 51%)", "hsl(152, 60%, 38%)",
+  "hsl(207, 89%, 48%)", "hsl(42, 65%, 56%)", "hsl(152, 60%, 38%)",
   "hsl(174, 62%, 47%)", "hsl(0, 72%, 51%)", "hsl(28, 87%, 55%)",
   "hsl(270, 60%, 55%)", "hsl(330, 70%, 50%)",
 ];
@@ -216,13 +217,13 @@ const unidadesPreset = [
 
 const prioridadeConfig = {
   alta: { label: "Alta", color: "hsl(0, 72%, 51%)", bg: "hsl(0, 72%, 51%, 0.12)", icon: Flame },
-  media: { label: "Média", color: "hsl(45, 100%, 51%)", bg: "hsl(45, 100%, 51%, 0.12)", icon: AlertTriangle },
+  media: { label: "Média", color: "hsl(42, 65%, 56%)", bg: "hsl(45, 100%, 51%, 0.12)", icon: AlertTriangle },
   baixa: { label: "Baixa", color: "hsl(207, 89%, 48%)", bg: "hsl(207, 89%, 48%, 0.12)", icon: Clock },
 };
 
 const statusConfig = {
   no_prazo: { label: "No Prazo", color: "hsl(152, 60%, 38%)", bg: "hsl(152, 60%, 38%, 0.12)", icon: CheckCircle2 },
-  atencao: { label: "Atenção", color: "hsl(45, 100%, 51%)", bg: "hsl(45, 100%, 51%, 0.12)", icon: AlertTriangle },
+  atencao: { label: "Atenção", color: "hsl(42, 65%, 56%)", bg: "hsl(45, 100%, 51%, 0.12)", icon: AlertTriangle },
   em_risco: { label: "Em Risco", color: "hsl(0, 72%, 51%)", bg: "hsl(0, 72%, 51%, 0.12)", icon: XCircle },
   atingida: { label: "Atingida", color: "hsl(207, 89%, 48%)", bg: "hsl(207, 89%, 48%, 0.12)", icon: Trophy },
 };
@@ -282,6 +283,7 @@ function renderDynamicFields(
     removerCampo?: (id: string, valor: string) => Promise<boolean>;
     customPorTipo?: (tipo: import("@/hooks/useMetaCampos").TipoCampo) => import("@/hooks/useMetaCampos").CampoCustomizado[];
   },
+  usuariosDisponiveis?: { id: string; full_name: string; email: string }[],
 ) {
   const set = (key: string, val: string) => setValues({ ...values, [key]: val });
   const fields: React.ReactNode[] = [];
@@ -291,7 +293,26 @@ function renderDynamicFields(
   if (toggles.responsavel) gestaoFields.push(
     <div key="resp" className="space-y-1.5">
       <Label className="text-[11px]" style={labelStyle}>Responsável</Label>
-      <Input value={values.responsavel} onChange={(e) => set("responsavel", e.target.value)} placeholder="Nome" className="h-8 text-[12px] border-none" style={inputStyle} />
+      {usuariosDisponiveis && usuariosDisponiveis.length > 0 ? (
+        <select
+          value={values.responsavel_id || ""}
+          onChange={(e) => {
+            const uid = e.target.value;
+            const u = usuariosDisponiveis.find(u => u.id === uid);
+            set("responsavel_id", uid);
+            set("responsavel", u?.full_name || u?.email || "");
+          }}
+          className="w-full h-8 px-2 rounded text-[12px] border-none focus:outline-none"
+          style={inputStyle}
+        >
+          <option value="">— Sem responsável —</option>
+          {usuariosDisponiveis.map(u => (
+            <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+          ))}
+        </select>
+      ) : (
+        <Input value={values.responsavel} onChange={(e) => set("responsavel", e.target.value)} placeholder="Nome" className="h-8 text-[12px] border-none" style={inputStyle} />
+      )}
     </div>
   );
   if (toggles.aprovador) gestaoFields.push(
@@ -629,6 +650,7 @@ export default function Metas() {
   const { toast } = useToast();
   const { user, profile, canEditMetas, userRole } = useAuth();
   const metaCampos = useMetaCampos();
+  const { registrar: registrarAudit } = useAudit();
   const [metas, setMetas] = useState<Meta[]>([]);
   const [acoes, setAcoes] = useState<AcaoMeta[]>([]);
   const [checkins, setCheckins] = useState<CheckIn[]>([]);
@@ -668,6 +690,12 @@ export default function Metas() {
 
   // Obras disponíveis para vínculo
   const [obrasDisponiveis, setObrasDisponiveis] = useState<{ id: string; nome: string; etapa_atual: string }[]>([]);
+  const [usuariosDisponiveis, setUsuariosDisponiveis] = useState<{ id: string; full_name: string; email: string }[]>([]);
+  const [sugestoesFase, setSugestoesFase]   = useState<any[]>([]);
+  const [selSugNew,     setSelSugNew]       = useState<Record<string, boolean>>({});
+  const [valSugNew,     setValSugNew]       = useState<Record<string, string>>({});
+  const [selSugEdit,    setSelSugEdit]      = useState<Record<string, boolean>>({});
+  const [valSugEdit,    setValSugEdit]      = useState<Record<string, string>>({});
 
   // Dynamic categories: base + custom from Supabase + any from existing metas
   const categorias = useMemo(() => {
@@ -677,18 +705,32 @@ export default function Metas() {
   }, [metas, metaCampos.categorias]);
   const [newAcao, setNewAcao] = useState({ descricao: "", responsavel: "", prazo: "", imagens: [] as string[] });
   const [newCheckin, setNewCheckin] = useState({ valor: "", comentario: "", confianca: "no_prazo" as CheckIn["confianca"], imagens: [] as string[] });
-  const [activeTab, setActiveTab] = useState<"editor" | "analytics" | "ranking" | "acoes" | "timeline">(canEditMetas ? "editor" : "acoes");
+  const [activeTab, setActiveTab] = useState<"editor" | "analytics" | "ranking" | "acoes" | "timeline" | "historico">(canEditMetas ? "editor" : "acoes");
+  const [historyMeta, setHistoryMeta] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [filtroCategoria, setFiltroCategoria] = useState("Todas");
   const [filtroPrioridade, setFiltroPrioridade] = useState("Todas");
   const [filtroCiclo, setFiltroCiclo] = useState("Todos");
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 20;
 
+  const fetchHistory = useCallback(async (metaId: string) => {
+    setLoadingHistory(true);
+    const { data } = await supabase
+      .from("metas_history")
+      .select("*")
+      .eq("meta_id", metaId)
+      .order("edited_at", { ascending: false })
+      .limit(50);
+    setHistoryMeta(data ?? []);
+    setLoadingHistory(false);
+  }, []);
+
   const fetchMetas = useCallback(async () => {
     const { data, error } = await supabase.from("metas").select("*").order("created_at", { ascending: false });
     if (!error && data) {
       setMetas(data.map((m: any) => ({
-        id: m.id, nome: m.nome, atual: Number(m.atual), objetivo: Number(m.objetivo),
+        id: m.id, nome: m.nome, atual: Number(m.atual), objetivo: Number(m.objetivo), responsavel_id: (m as any).responsavel_id ?? '',
         unidade: m.unidade, cor: m.cor, categoria: m.categoria, responsavel: m.responsavel,
         prazo: m.prazo, prioridade: m.prioridade as Meta["prioridade"],
         parent_id: m.parent_id ?? null, ciclo: m.ciclo ?? "Q1 2026",
@@ -723,13 +765,17 @@ export default function Metas() {
 
   useEffect(() => {
     fetchMetas(); fetchAcoes(); fetchCheckins();
-    // Carrega obras para o select de vínculo
+    // Carrega obras e sugestões de fase
     supabase.from("execucao_obras" as any)
       .select("id,nome,etapa_atual")
       .order("nome", { ascending: true })
-      .then(({ data }) => {
-        if (data) setObrasDisponiveis(data as any);
-      });
+      .then(({ data }) => { if (data) setObrasDisponiveis(data as any); });
+    supabase.from("metas_sugestoes_fase" as any)
+      .select("*").eq("ativo", true).order("ordem")
+      .then(({ data }) => { if (data) setSugestoesFase(data as any[]); });
+    // Carregar perfis de usuários para o select de responsável
+    supabase.from("profiles").select("id, full_name, email").order("full_name")
+      .then(({ data }) => { if (data) setUsuariosDisponiveis(data as any[]); });
   }, [fetchMetas, fetchAcoes, fetchCheckins]);
   useRealtimeTable("metas", fetchMetas);
   useRealtimeTable("acoes_meta", fetchAcoes);
@@ -745,22 +791,15 @@ export default function Metas() {
       toast({ title: "Preencha o nome da meta", variant: "destructive" });
       return;
     }
-    if (newMetaTipo === "quantitativa" && newMetaToggles.valores && !newMeta.objetivo) {
-      toast({ title: "Preencha o objetivo", variant: "destructive" });
-      return;
-    }
+    // objetivo não é mais obrigatório — se vazio usa padrão inteligente por unidade
     const categoriaFinal = !newMetaToggles.categoria ? "Geral" : newMeta.categoria === "__outra__" ? newMeta.categoriaCustom.trim() : newMeta.categoria;
-    if (newMetaToggles.categoria && !categoriaFinal) {
-      toast({ title: "Informe a categoria", variant: "destructive" });
-      return;
-    }
     setSaving(true);
     const cor = coresMeta[metas.length % coresMeta.length];
     const isQual = newMetaTipo === "qualitativa" || !newMetaToggles.valores;
     const { error } = await supabase.from("metas").insert({
       nome: newMeta.nome,
       atual: isQual ? 0 : (parseFloat(newMeta.atual) || 0),
-      objetivo: isQual ? 1 : (parseFloat(newMeta.objetivo) || 1),
+      objetivo: isQual ? 1 : (parseFloat(newMeta.objetivo) || (newMeta.unidade === "%" ? 100 : 0)),
       unidade: isQual ? "texto" : newMeta.unidade,
       cor,
       categoria: categoriaFinal || "Geral",
@@ -791,6 +830,7 @@ export default function Metas() {
       dependencias: newMetaToggles.dependencias ? newMeta.dependencias : "",
       marco_critico: newMetaToggles.marco_critico ? newMeta.marco_critico : "",
       obra_id: newMeta.obra_id || null,
+      responsavel_id: newMeta.responsavel_id || null,
       campos_extras: Object.fromEntries(
         metaCampos.camposExtras
           .filter(c => newCamposExtrasAtivos[c.valor] && newMeta[c.valor])
@@ -798,23 +838,48 @@ export default function Metas() {
       ),
     });
     if (error) { toast({ title: "Erro ao criar meta", description: error.message, variant: "destructive" }); return; }
+
+    // Auditoria — INSERT
+    registrarAudit({ table_name: "metas", record_id: "novo", action: "INSERT", new_values: { nome: newMeta.nome, categoria: newMeta.categoria } });
+
+    // Criar metas sugeridas selecionadas (se obra vinculada)
+    if (newMeta.obra_id) {
+      const obra = obrasDisponiveis.find(o => o.id === newMeta.obra_id);
+      const sugs = sugestoesFase.filter(s => s.fase === obra?.etapa_atual && selSugNew[s.id]);
+      if (sugs.length > 0) {
+        const coresMeta = ["hsl(207,89%,48%)","hsl(42, 65%, 56%)","hsl(152,60%,38%)","hsl(174,62%,47%)","hsl(0,72%,51%)","hsl(28,87%,55%)","hsl(270,60%,55%)","hsl(330,70%,50%)"];
+        const extras = sugs.map((s: any, idx: number) => ({
+          nome: s.nome, atual: 0,
+          objetivo: valSugNew[s.id] ? parseFloat(valSugNew[s.id]) : (s.unidade === "%" ? 100 : s.objetivo),
+          unidade: s.unidade, cor: coresMeta[idx % coresMeta.length],
+          categoria: s.categoria, responsavel: newMeta.responsavel || "",
+          prioridade: s.prioridade, ciclo: newMeta.ciclo || "Q1 2026",
+          status: "no_prazo", descricao: s.descricao,
+          local_obra: obra?.nome || "", etapa: obra?.etapa_atual || "",
+          obra_id: newMeta.obra_id, created_by: user?.id, tipo_meta: "quantitativa",
+          prazo: newMeta.prazo || null,
+        }));
+        await supabase.from("metas").insert(extras);
+        toast({ title: "Meta criada!", description: `+ ${sugs.length} meta${sugs.length > 1 ? "s" : ""} da fase criada${sugs.length > 1 ? "s" : ""}` });
+      } else {
+        toast({ title: "Meta criada!" });
+      }
+    } else {
+      toast({ title: "Meta criada!" });
+    }
+
     setSaving(false);
+    setSelSugNew({}); setValSugNew({});
     setNewMeta({ nome: "", atual: "", objetivo: "", unidade: "", categoria: "Financeiro", categoriaCustom: "", responsavel: "", prioridade: "media", ciclo: "Q1 2026", parent_id: "", descricao: "", local_obra: "", orcamento: "", custo_atual: "", equipe: "", fornecedor: "", etapa: "", peso: "", tags: "", data_inicio: "", frequencia_checkin: "semanal", risco: "", observacoes: "", aprovador: "", departamento: "", indicador_chave: "", fonte_dados: "", impacto: "", dependencias: "", marco_critico: "", obra_id: "" });
     setDialogOpen(false);
-    toast({ title: "Meta criada!" });
   };
 
   const saveEdit = async (id: string) => {
     const meta = metas.find(m => m.id === id);
     const isQual = editMetaTipo === "qualitativa" || !editMetaToggles.valores;
     const novoValor = isQual ? 0 : (parseFloat(editValues.atual) || 0);
-    const novoObj = isQual ? 1 : (parseFloat(editValues.objetivo) || 1);
+    const novoObj = isQual ? 1 : (parseFloat(editValues.objetivo) || (editValues.unidade === "%" ? 100 : 0));
     const categoriaFinal = !editMetaToggles.categoria ? (meta?.categoria || "Geral") : editValues.categoria === "__outra__" ? editValues.categoriaCustom.trim() : editValues.categoria;
-    if (editMetaToggles.categoria && !categoriaFinal) {
-      toast({ title: "Informe a categoria", variant: "destructive" });
-      return;
-    }
-    
     // Auto-calculate status
     const pct = isQual ? 0 : (novoValor / novoObj) * 100;
     let newStatus: Meta["status"] = "no_prazo";
@@ -936,7 +1001,7 @@ export default function Metas() {
 
     // Update meta value and status if changed
     if (novoValor !== meta.atual) {
-      const pct = (novoValor / meta.objetivo) * 100;
+      const pct = meta.objetivo > 0 ? (novoValor / meta.objetivo) * 100 : 0;
       let st: Meta["status"] = newCheckin.confianca === "em_risco" ? "em_risco" : newCheckin.confianca === "atencao" ? "atencao" : pct >= 100 ? "atingida" : "no_prazo";
       await supabase.from("metas").update({ atual: novoValor, status: st }).eq("id", checkinMetaId);
     }
@@ -963,34 +1028,34 @@ export default function Metas() {
 
   // Analytics
   const quantMetas = metas.filter(m => m.unidade !== "texto");
-  const totalProgress = quantMetas.length > 0 ? quantMetas.reduce((acc, m) => acc + (m.atual / m.objetivo) * 100, 0) / quantMetas.length : 0;
+  const totalProgress = quantMetas.length > 0 ? quantMetas.reduce((acc, m) => acc + (m.objetivo > 0 ? m.atual / m.objetivo : 0) * 100, 0) / quantMetas.length : 0;
   const metasAtingidas = quantMetas.filter((m) => m.atual >= m.objetivo).length;
-  const metasEmRisco = metas.filter((m) => m.status === "em_risco" || (m.unidade !== "texto" && (m.atual / m.objetivo) < 0.3)).length;
-  const metasNoPrazo = metas.filter((m) => m.status === "no_prazo" || (m.unidade !== "texto" && (m.atual / m.objetivo) >= 0.7)).length;
+  const metasEmRisco = metas.filter((m) => m.status === "em_risco" || (m.unidade !== "texto" && (m.objetivo > 0 ? m.atual / m.objetivo : 0) < 0.3)).length;
+  const metasNoPrazo = metas.filter((m) => m.status === "no_prazo" || (m.unidade !== "texto" && (m.objetivo > 0 ? m.atual / m.objetivo : 0) >= 0.7)).length;
 
   const categoriasData = categorias.map((cat) => {
     const catMetas = metas.filter((m) => m.categoria === cat);
     if (catMetas.length === 0) return null;
-    const avg = catMetas.reduce((a, m) => a + (m.atual / m.objetivo) * 100, 0) / catMetas.length;
+    const avg = catMetas.reduce((a, m) => a + (m.objetivo > 0 ? m.atual / m.objetivo : 0) * 100, 0) / catMetas.length;
     return { name: cat, progresso: Math.round(avg), count: catMetas.length };
   }).filter(Boolean) as { name: string; progresso: number; count: number }[];
 
   const prioridadeData = [
     { name: "Alta", value: metas.filter((m) => m.prioridade === "alta").length, color: "hsl(0, 72%, 51%)" },
-    { name: "Média", value: metas.filter((m) => m.prioridade === "media").length, color: "hsl(45, 100%, 51%)" },
+    { name: "Média", value: metas.filter((m) => m.prioridade === "media").length, color: "hsl(42, 65%, 56%)" },
     { name: "Baixa", value: metas.filter((m) => m.prioridade === "baixa").length, color: "hsl(207, 89%, 48%)" },
   ].filter((d) => d.value > 0);
 
   const statusData = [
     { name: "Atingida", value: metas.filter(m => m.status === "atingida").length, color: "hsl(152, 60%, 38%)" },
     { name: "No Prazo", value: metas.filter(m => m.status === "no_prazo").length, color: "hsl(207, 89%, 48%)" },
-    { name: "Atenção", value: metas.filter(m => m.status === "atencao").length, color: "hsl(45, 100%, 51%)" },
+    { name: "Atenção", value: metas.filter(m => m.status === "atencao").length, color: "hsl(42, 65%, 56%)" },
     { name: "Em Risco", value: metas.filter(m => m.status === "em_risco").length, color: "hsl(0, 72%, 51%)" },
   ].filter((d) => d.value > 0);
 
   const radialData = metas.slice(0, 6).map((m) => ({
     name: m.nome.length > 18 ? m.nome.slice(0, 18) + "…" : m.nome,
-    value: Math.round((m.atual / m.objetivo) * 100), fill: m.cor,
+    value: Math.round((m.objetivo > 0 ? m.atual / m.objetivo : 0) * 100), fill: m.cor,
   }));
 
   const rankingMetas = [...metas].sort((a, b) => (b.atual / b.objetivo) - (a.atual / a.objetivo));
@@ -1015,6 +1080,7 @@ export default function Metas() {
         { key: "acoes" as const, label: "Plano de Ação", icon: ListChecks },
         { key: "timeline" as const, label: "Check-ins", icon: History },
         { key: "analytics" as const, label: "Analytics", icon: BarChart3 },
+        { key: "historico" as const, label: "Histórico", icon: FileText },
         { key: "ranking" as const, label: "Ranking", icon: Trophy },
       ]
     : [
@@ -1025,13 +1091,13 @@ export default function Metas() {
       ];
 
   const roleLabel = userRole === "admin" ? "Administrador" : userRole === "master" ? "Editor Premium" : "Visualizador";
-  const roleBadgeColor = userRole === "admin" ? "hsl(0, 72%, 51%)" : userRole === "master" ? "hsl(45, 100%, 51%)" : "hsl(207, 89%, 48%)";
+  const roleBadgeColor = userRole === "admin" ? "hsl(0, 72%, 51%)" : userRole === "master" ? "hsl(42, 65%, 56%)" : "hsl(207, 89%, 48%)";
 
   // Health heatmap data
   const healthData = categorias.map(cat => {
     const catMetas = metas.filter(m => m.categoria === cat);
     if (catMetas.length === 0) return null;
-    const avgPct = catMetas.reduce((a, m) => a + (m.atual / m.objetivo) * 100, 0) / catMetas.length;
+    const avgPct = catMetas.reduce((a, m) => a + (m.objetivo > 0 ? m.atual / m.objetivo : 0) * 100, 0) / catMetas.length;
     const riskCount = catMetas.filter(m => m.status === "em_risco").length;
     const okCount = catMetas.filter(m => m.status === "atingida" || m.status === "no_prazo").length;
     return { cat, avgPct: Math.round(avgPct), total: catMetas.length, risk: riskCount, ok: okCount };
@@ -1166,7 +1232,7 @@ export default function Metas() {
                       <Label className="text-[11px]" style={{ color: "hsl(var(--pbi-text-secondary))" }}>Unidade de Medida</Label>
                       <div className="flex flex-wrap gap-1.5">
                         {/* Opção sem unidade */}
-                        <button type="button" onClick={() => setNewMeta({ ...newMeta, unidade: "" })}
+                        <button type="button" onClick={() => setNewMeta({ ...newMeta, unidade: "", objetivo: "" })}
                           className="text-[10px] px-2.5 py-1.5 rounded font-medium transition-all"
                           style={{
                             background: newMeta.unidade === "" ? "hsl(var(--pbi-yellow))" : "hsl(var(--pbi-dark))",
@@ -1175,7 +1241,7 @@ export default function Metas() {
                           }}
                         >Sem unidade</button>
                         {metaCampos.unidades.map((u) => (
-                          <button key={u.value} type="button" onClick={() => setNewMeta({ ...newMeta, unidade: u.value })}
+                          <button key={u.value} type="button" onClick={() => setNewMeta({ ...newMeta, unidade: u.value, objetivo: u.value === "%" ? "100" : (newMeta.objetivo || "") })}
                             className="text-[10px] px-2.5 py-1.5 rounded font-medium transition-all"
                             style={{
                               background: newMeta.unidade === u.value ? "hsl(var(--pbi-yellow))" : "hsl(var(--pbi-dark))",
@@ -1193,16 +1259,16 @@ export default function Metas() {
                           hideSelect
                         />
                       </div>
-                      <Input value={newMeta.unidade} onChange={(e) => setNewMeta({ ...newMeta, unidade: e.target.value })} placeholder="Ou personalizada..." className="h-7 text-[11px] border-none mt-1" style={{ background: "hsl(var(--pbi-dark))", color: "hsl(var(--pbi-text-primary))" }} />
+                      <Input value={newMeta.unidade} onChange={(e) => setNewMeta({ ...newMeta, unidade: e.target.value, objetivo: e.target.value === "%" ? "100" : newMeta.objetivo })} placeholder="Ou personalizada..." className="h-7 text-[11px] border-none mt-1" style={{ background: "hsl(var(--pbi-dark))", color: "hsl(var(--pbi-text-primary))" }} />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <Label className="text-[11px]" style={{ color: "hsl(var(--pbi-text-secondary))" }}>Valor Atual{newMeta.unidade ? ` (${newMeta.unidade})` : ""}</Label>
+                        <Label className="text-[11px]" style={{ color: "hsl(var(--pbi-text-secondary))" }}>Valor Atual{newMeta.unidade ? ` (${newMeta.unidade})` : ""} <span style={{fontWeight:400,opacity:0.6}}>(opcional)</span></Label>
                         <Input type="number" value={newMeta.atual} onChange={(e) => setNewMeta({ ...newMeta, atual: e.target.value })} placeholder="0" className="h-8 text-[12px] border-none" style={{ background: "hsl(var(--pbi-dark))", color: "hsl(var(--pbi-text-primary))" }} />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[11px]" style={{ color: "hsl(var(--pbi-text-secondary))" }}>Objetivo{newMeta.unidade ? ` (${newMeta.unidade})` : ""} *</Label>
-                        <Input type="number" value={newMeta.objetivo} onChange={(e) => setNewMeta({ ...newMeta, objetivo: e.target.value })} placeholder="100" className="h-8 text-[12px] border-none" style={{ background: "hsl(var(--pbi-dark))", color: "hsl(var(--pbi-text-primary))" }} />
+                        <Label className="text-[11px]" style={{ color: "hsl(var(--pbi-text-secondary))" }}>Objetivo{newMeta.unidade ? ` (${newMeta.unidade})` : ""} <span style={{fontWeight:400,opacity:0.6}}>(opcional)</span></Label>
+                        <Input type="number" value={newMeta.objetivo} onChange={(e) => setNewMeta({ ...newMeta, objetivo: e.target.value })} placeholder={newMeta.unidade === "%" ? "100" : "Ex: 50"} className="h-8 text-[12px] border-none" style={{ background: "hsl(var(--pbi-dark))", color: "hsl(var(--pbi-text-primary))" }} />
                       </div>
                     </div>
                   </>
@@ -1271,7 +1337,20 @@ export default function Metas() {
                     </Label>
                     <select
                       value={newMeta.obra_id || ""}
-                      onChange={(e) => setNewMeta({ ...newMeta, obra_id: e.target.value })}
+                      onChange={(e) => {
+                        const obraId = e.target.value;
+                        const obra = obrasDisponiveis.find(o => o.id === obraId);
+                        const sugs = sugestoesFase.filter(s => s.fase === obra?.etapa_atual);
+                        const sel: Record<string, boolean> = {};
+                        const val: Record<string, string>  = {};
+                        sugs.forEach(s => { sel[s.id] = true; val[s.id] = ""; });
+                        setSelSugNew(sel);
+                        setValSugNew(val);
+                        setNewMeta({ ...newMeta, obra_id: obraId,
+                          etapa: obra?.etapa_atual || newMeta.etapa,
+                          local_obra: obra?.nome || newMeta.local_obra,
+                        });
+                      }}
                       className="w-full h-9 rounded-lg text-[12px] px-3 border outline-none transition-colors cursor-pointer"
                       style={{
                         background: "hsl(var(--card))",
@@ -1294,6 +1373,68 @@ export default function Metas() {
                         💡 Cadastre empreendimentos em <strong>Obras → Empreendimentos</strong> para vincular aqui.
                       </p>
                     )}
+
+                    {/* Sugestões da fase da obra selecionada */}
+                    {newMeta.obra_id && (() => {
+                      const obra = obrasDisponiveis.find(o => o.id === newMeta.obra_id);
+                      const sugs = sugestoesFase.filter(s => s.fase === obra?.etapa_atual);
+                      if (!sugs.length) return null;
+                      const selCount = Object.values(selSugNew).filter(Boolean).length;
+                      return (
+                        <div className="mt-3 p-3 rounded-lg space-y-2" style={{ background: "hsl(271,60%,55%,0.06)", border: "1px solid hsl(271,60%,55%,0.2)" }}>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-semibold text-foreground" style={{ color: "hsl(271,60%,55%)" }}>
+                              ⚡ {sugs.length} metas sugeridas para fase
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: "hsl(271,60%,55%,0.15)", color: "hsl(271,60%,55%)" }}>
+                              {obra?.etapa_atual}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground ml-auto">{selCount} selecionada{selCount !== 1 ? "s" : ""}</span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">Selecione as que deseja criar junto com esta meta. Elas serão vinculadas à mesma obra.</p>
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                            {sugs.map((sug: any) => {
+                              const sel = selSugNew[sug.id] ?? true;
+                              const pc  = sug.prioridade === "alta" ? "hsl(0,72%,51%)" : sug.prioridade === "media" ? "hsl(42, 65%, 56%)" : "hsl(207,89%,48%)";
+                              return (
+                                <div key={sug.id}
+                                  className="flex items-center gap-2 p-2 rounded cursor-pointer transition-all"
+                                  style={{ background: sel ? "hsl(271,60%,55%,0.1)" : "hsl(var(--pbi-dark))", border: `1px solid ${sel ? "hsl(271,60%,55%,0.3)" : "hsl(var(--pbi-border))"}` }}
+                                  onClick={() => setSelSugNew(prev => ({ ...prev, [sug.id]: !prev[sug.id] }))}>
+                                  <div className="w-4 h-4 rounded shrink-0 flex items-center justify-center transition-all"
+                                    style={{ background: sel ? "hsl(271,60%,55%)" : "transparent", border: `1.5px solid ${sel ? "hsl(271,60%,55%)" : "hsl(var(--pbi-border))"}` }}>
+                                    {sel && <span className="text-white text-[9px] font-bold">✓</span>}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-[11px] font-medium text-foreground">{sug.nome}</span>
+                                      <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: `${pc}18`, color: pc }}>{sug.prioridade}</span>
+                                      <span className="text-[9px] text-muted-foreground">{sug.categoria}</span>
+                                    </div>
+                                    {sug.descricao && <p className="text-[10px] text-muted-foreground">{sug.descricao}</p>}
+                                  </div>
+                                  {sel && (
+                                    <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                      <input type="number"
+                                        placeholder={sug.objetivo > 0 ? String(sug.objetivo) : "Qtd"}
+                                        value={valSugNew[sug.id] || ""}
+                                        onChange={e => setValSugNew(prev => ({ ...prev, [sug.id]: e.target.value }))}
+                                        className="w-14 h-6 px-1.5 rounded text-[11px] border border-border bg-background text-foreground text-right" />
+                                      <span className="text-[10px] text-muted-foreground">{sug.unidade}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {selCount > 0 && (
+                            <p className="text-[10px] text-muted-foreground pt-1" style={{ borderTop: "1px solid hsl(271,60%,55%,0.15)" }}>
+                              ✓ {selCount} meta{selCount > 1 ? "s adicionais serão criadas" : " adicional será criada"} junto com esta ao salvar.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -1309,6 +1450,10 @@ export default function Metas() {
         {editorTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
+                  const handleTabClick = () => {
+                    setActiveTab(tab.key);
+                    if (tab.key === "historico" && editingId) fetchHistory(editingId);
+                  };
           return (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)} className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded text-[12px] font-medium transition-all whitespace-nowrap" style={{ background: isActive ? "hsl(var(--pbi-yellow))" : "transparent", color: isActive ? "hsl(var(--pbi-dark))" : "hsl(var(--pbi-text-secondary))" }}>
               <Icon className="w-3.5 h-3.5" />
@@ -1323,7 +1468,7 @@ export default function Metas() {
         {[
           { label: "Total Metas", value: metas.length, color: "hsl(207, 89%, 48%)", icon: Target },
           { label: "Progresso Médio", value: `${Math.round(totalProgress)}%`, color: "hsl(152, 60%, 38%)", icon: TrendingUp },
-          { label: "Atingidas", value: `${metasAtingidas}/${metas.length}`, color: "hsl(45, 100%, 51%)", icon: Award },
+          { label: "Atingidas", value: `${metasAtingidas}/${metas.length}`, color: "hsl(42, 65%, 56%)", icon: Award },
           { label: "Em Risco", value: metasEmRisco, color: "hsl(0, 72%, 51%)", icon: AlertTriangle },
           { label: "Check-ins", value: checkins.length, color: "hsl(174, 62%, 47%)", icon: MessageCircle },
         ].map((kpi) => {
@@ -1356,7 +1501,7 @@ export default function Metas() {
             <PBITile title="🗺️ Mapa de Saúde por Categoria">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                 {healthData.map((h) => {
-                  const color = h.avgPct >= 80 ? "hsl(152, 60%, 38%)" : h.avgPct >= 50 ? "hsl(45, 100%, 51%)" : "hsl(0, 72%, 51%)";
+                  const color = h.avgPct >= 80 ? "hsl(152, 60%, 38%)" : h.avgPct >= 50 ? "hsl(42, 65%, 56%)" : "hsl(0, 72%, 51%)";
                   const bgOpacity = h.avgPct >= 80 ? "0.12" : h.avgPct >= 50 ? "0.12" : "0.15";
                   return (
                     <div key={h.cat} className="p-3 rounded text-center" style={{ background: `${color.replace(")", `, ${bgOpacity})`)}`, border: `1px solid ${color.replace(")", ", 0.25)")}` }}>
@@ -1375,7 +1520,7 @@ export default function Metas() {
               <div className="space-y-2.5">
                 {pagedMetas.map((meta) => {
                   const qual = isQualitativa(meta);
-                  const pct = qual ? 0 : Math.min(Math.round((meta.atual / meta.objetivo) * 100), 100);
+                  const pct = qual ? 0 : Math.min(Math.round((meta.objetivo > 0 ? meta.atual / meta.objetivo : 0) * 100), 100);
                   const pCfg = prioridadeConfig[meta.prioridade];
                   const sCfg = statusConfig[meta.status];
                   const metaAcoes = acoes.filter((a) => a.meta_id === meta.id);
@@ -1562,12 +1707,12 @@ export default function Metas() {
 
           {pagedMetas.map((meta) => {
             const qual = isQualitativa(meta);
-            const pct = qual ? 0 : Math.min(Math.round((meta.atual / meta.objetivo) * 100), 100);
+            const pct = qual ? 0 : Math.min(Math.round((meta.objetivo > 0 ? meta.atual / meta.objetivo : 0) * 100), 100);
             const metaAcoes = acoes.filter((a) => a.meta_id === meta.id && a.tipo === "acao");
             const metaContribs = acoes.filter((a) => a.meta_id === meta.id && a.tipo === "contribuicao");
             const pCfg = prioridadeConfig[meta.prioridade];
             const sCfg = statusConfig[meta.status];
-            const barColor = pct >= 80 ? "hsl(152, 60%, 38%)" : pct >= 50 ? "hsl(207, 89%, 48%)" : pct >= 30 ? "hsl(45, 100%, 51%)" : "hsl(0, 72%, 51%)";
+            const barColor = pct >= 80 ? "hsl(152, 60%, 38%)" : pct >= 50 ? "hsl(207, 89%, 48%)" : pct >= 30 ? "hsl(42, 65%, 56%)" : "hsl(0, 72%, 51%)";
 
             return (
               <PBITile key={meta.id}>
@@ -1829,7 +1974,7 @@ export default function Metas() {
             <PBITile title="🔥 Confiança Geral">
               {[
                 { label: "No Prazo", count: checkins.filter(c => c.confianca === "no_prazo").length, color: "hsl(152, 60%, 38%)" },
-                { label: "Atenção", count: checkins.filter(c => c.confianca === "atencao").length, color: "hsl(45, 100%, 51%)" },
+                { label: "Atenção", count: checkins.filter(c => c.confianca === "atencao").length, color: "hsl(42, 65%, 56%)" },
                 { label: "Em Risco", count: checkins.filter(c => c.confianca === "em_risco").length, color: "hsl(0, 72%, 51%)" },
               ].filter(d => d.count > 0).map((d) => (
                 <div key={d.label} className="flex items-center gap-2 py-1.5">
@@ -1916,14 +2061,93 @@ export default function Metas() {
         </>
       )}
 
+      {/* ========== HISTÓRICO TAB ========== */}
+      {activeTab === "historico" && !loading && (
+        <div className="space-y-3">
+          <div className="pbi-tile" style={{ borderLeft: "3px solid hsl(207,89%,48%)" }}>
+            <p className="text-[12px] font-semibold text-foreground mb-1 flex items-center gap-2">
+              <FileText className="w-4 h-4" style={{ color: "hsl(207,89%,48%)" }} />
+              Histórico de Alterações
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Registro automático de todas as mudanças em metas. Selecione uma meta no Editor para ver seu histórico específico.
+            </p>
+          </div>
+          {loadingHistory ? (
+            <div className="pbi-tile text-center py-8">
+              <p className="text-[11px] text-muted-foreground">Carregando histórico...</p>
+            </div>
+          ) : historyMeta.length === 0 ? (
+            <div className="pbi-tile text-center py-10 space-y-2">
+              <FileText className="w-8 h-8 text-muted-foreground mx-auto opacity-40" />
+              <p className="text-[12px] text-muted-foreground">Nenhuma alteração registrada ainda.</p>
+              <p className="text-[11px] text-muted-foreground">O histórico é gerado automaticamente a partir do próximo UPDATE em qualquer meta.</p>
+            </div>
+          ) : (
+            <div className="pbi-tile overflow-x-auto">
+              <p className="text-[12px] font-semibold text-foreground mb-3">
+                {historyMeta.length} alteração{historyMeta.length !== 1 ? "ões" : ""} registrada{historyMeta.length !== 1 ? "s" : ""}
+              </p>
+              <div className="space-y-2">
+                {historyMeta.map((h: any) => {
+                  // Descobrir o que mudou nesse registro
+                  const campos = [
+                    { label: "Nome",        ant: h.nome_anterior,       nov: h.nome_novo },
+                    { label: "Status",      ant: h.status_anterior,     nov: h.status_novo },
+                    { label: "Atual",       ant: h.atual_anterior,      nov: h.atual_novo },
+                    { label: "Objetivo",    ant: h.objetivo_anterior,   nov: h.objetivo_novo },
+                    { label: "Responsável", ant: h.responsavel_anterior, nov: h.responsavel_novo },
+                    { label: "Prioridade",  ant: h.prioridade_anterior, nov: h.prioridade_novo },
+                    { label: "Prazo",       ant: h.prazo_anterior,      nov: h.prazo_novo },
+                    { label: "Categoria",   ant: h.categoria_anterior,  nov: h.categoria_novo },
+                    { label: "Orçamento",   ant: h.orcamento_anterior,  nov: h.orcamento_novo },
+                  ].filter(c => c.ant !== null || c.nov !== null);
+
+                  if (campos.length === 0) return null;
+                  return (
+                    <div key={h.id} className="rounded p-3" style={{ background: "hsl(var(--secondary)/0.5)", border: "1px solid hsl(var(--border))" }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(h.edited_at).toLocaleString("pt-BR")}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                          style={{ background: "hsl(207,89%,48%,0.15)", color: "hsl(207,89%,48%)" }}>
+                          {campos.length} campo{campos.length > 1 ? "s" : ""} alterado{campos.length > 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        {campos.map(c => (
+                          <div key={c.label} className="flex items-center gap-2 text-[11px]">
+                            <span className="text-muted-foreground w-20 shrink-0">{c.label}</span>
+                            {c.ant !== null && (
+                              <span className="line-through text-muted-foreground">{String(c.ant)}</span>
+                            )}
+                            {c.ant !== null && c.nov !== null && (
+                              <span className="text-muted-foreground">→</span>
+                            )}
+                            {c.nov !== null && (
+                              <span className="font-medium text-foreground">{String(c.nov)}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ========== RANKING TAB ========== */}
       {activeTab === "ranking" && !loading && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <PBITile title="🏆 Ranking de Metas (% Atingido)">
             <div className="space-y-2">
               {rankingMetas.map((meta, idx) => {
-                const pct = Math.min(Math.round((meta.atual / meta.objetivo) * 100), 100);
-                const medalColors = ["hsl(45, 100%, 51%)", "hsl(0, 0%, 75%)", "hsl(28, 87%, 55%)"];
+                const pct = Math.min(Math.round((meta.objetivo > 0 ? meta.atual / meta.objetivo : 0) * 100), 100);
+                const medalColors = ["hsl(42, 65%, 56%)", "hsl(0, 0%, 75%)", "hsl(28, 87%, 55%)"];
                 const pCfg = prioridadeConfig[meta.prioridade];
                 return (
                   <div key={meta.id} className="flex items-center gap-3 py-2 px-3 rounded transition-colors hover:bg-white/5" style={{ borderBottom: "1px solid hsl(var(--pbi-border) / 0.3)" }}>
@@ -1942,9 +2166,9 @@ export default function Metas() {
                       <span className="text-[10px] text-muted-foreground">{meta.responsavel} · {meta.ciclo}</span>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-[14px] font-bold" style={{ color: pct >= 100 ? "hsl(152, 60%, 38%)" : pct >= 70 ? "hsl(207, 89%, 48%)" : pct >= 50 ? "hsl(45, 100%, 51%)" : "hsl(0, 72%, 51%)" }}>{pct}%</p>
+                      <p className="text-[14px] font-bold" style={{ color: pct >= 100 ? "hsl(152, 60%, 38%)" : pct >= 70 ? "hsl(207, 89%, 48%)" : pct >= 50 ? "hsl(42, 65%, 56%)" : "hsl(0, 72%, 51%)" }}>{pct}%</p>
                       <div className="w-20 h-1.5 bg-secondary rounded-full mt-1">
-                        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: pct >= 100 ? "hsl(152, 60%, 38%)" : pct >= 70 ? "hsl(207, 89%, 48%)" : "hsl(45, 100%, 51%)" }} />
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: pct >= 100 ? "hsl(152, 60%, 38%)" : pct >= 70 ? "hsl(207, 89%, 48%)" : "hsl(42, 65%, 56%)" }} />
                       </div>
                     </div>
                   </div>
@@ -1962,8 +2186,8 @@ export default function Metas() {
               </div>
             ) : (
               <div className="space-y-2">
-                {metas.filter((m) => m.status === "em_risco" || (m.atual / m.objetivo) < 0.3).map((meta) => {
-                  const pct = Math.round((meta.atual / meta.objetivo) * 100);
+                {metas.filter((m) => m.status === "em_risco" || (m.objetivo > 0 ? m.atual / m.objetivo : 0) < 0.3).map((meta) => {
+                  const pct = Math.round((meta.objetivo > 0 ? meta.atual / meta.objetivo : 0) * 100);
                   const metaAcoesRisk = acoes.filter((a) => a.meta_id === meta.id);
                   return (
                     <div key={meta.id} className="p-3 rounded" style={{ background: "hsl(0, 72%, 51%, 0.06)", border: "1px solid hsl(0, 72%, 51%, 0.15)" }}>
@@ -2036,7 +2260,7 @@ export default function Metas() {
             {checkinMetaId && (() => {
               const meta = metas.find(m => m.id === checkinMetaId);
               if (!meta) return null;
-              const pct = Math.round((meta.atual / meta.objetivo) * 100);
+              const pct = Math.round((meta.objetivo > 0 ? meta.atual / meta.objetivo : 0) * 100);
               return (
                 <div className="flex items-center gap-3 p-2 rounded" style={{ background: "hsl(var(--pbi-dark))" }}>
                   <div className="flex-1">
@@ -2058,7 +2282,7 @@ export default function Metas() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {([
                   { key: "no_prazo" as const, label: "No Prazo", color: "hsl(152, 60%, 38%)" },
-                  { key: "atencao" as const, label: "Atenção", color: "hsl(45, 100%, 51%)" },
+                  { key: "atencao" as const, label: "Atenção", color: "hsl(42, 65%, 56%)" },
                   { key: "em_risco" as const, label: "Em Risco", color: "hsl(0, 72%, 51%)" },
                 ]).map((opt) => (
                   <button
@@ -2193,7 +2417,7 @@ export default function Metas() {
                   <Label className="text-[11px]" style={{ color: "hsl(var(--pbi-text-secondary))" }}>Unidade de Medida</Label>
                   <div className="flex flex-wrap gap-1">
                     {/* Opção sem unidade */}
-                    <button type="button" onClick={() => setEditValues({ ...editValues, unidade: "" })}
+                    <button type="button" onClick={() => setEditValues({ ...editValues, unidade: "", objetivo: "" })}
                       className="text-[9px] px-2 py-1 rounded font-medium transition-all"
                       style={{
                         background: editValues.unidade === "" ? "hsl(var(--pbi-yellow))" : "hsl(var(--pbi-dark))",
@@ -2202,7 +2426,7 @@ export default function Metas() {
                       }}
                     >Sem unidade</button>
                     {metaCampos.unidades.map((u) => (
-                      <button key={u.value} type="button" onClick={() => setEditValues({ ...editValues, unidade: u.value })}
+                      <button key={u.value} type="button" onClick={() => setEditValues({ ...editValues, unidade: u.value, objetivo: u.value === "%" ? "100" : (editValues.objetivo || "") })}
                         className="text-[9px] px-2 py-1 rounded font-medium transition-all"
                         style={{
                           background: editValues.unidade === u.value ? "hsl(var(--pbi-yellow))" : "hsl(var(--pbi-dark))",
@@ -2220,7 +2444,7 @@ export default function Metas() {
                       hideSelect
                     />
                   </div>
-                  <Input value={editValues.unidade} onChange={(e) => setEditValues({ ...editValues, unidade: e.target.value })} placeholder="Personalizada..." className="h-7 text-[11px] border-none mt-1" style={{ background: "hsl(var(--pbi-dark))", color: "hsl(var(--pbi-text-primary))" }} />
+                  <Input value={editValues.unidade} onChange={(e) => setEditValues({ ...editValues, unidade: e.target.value, objetivo: e.target.value === "%" ? "100" : editValues.objetivo })} placeholder="Personalizada..." className="h-7 text-[11px] border-none mt-1" style={{ background: "hsl(var(--pbi-dark))", color: "hsl(var(--pbi-text-primary))" }} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
@@ -2228,8 +2452,8 @@ export default function Metas() {
                     <Input type="number" value={editValues.atual} onChange={(e) => setEditValues({ ...editValues, atual: e.target.value })} className="h-8 text-[12px] border-none" style={{ background: "hsl(var(--pbi-dark))", color: "hsl(var(--pbi-text-primary))" }} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[11px]" style={{ color: "hsl(var(--pbi-text-secondary))" }}>Objetivo{editValues.unidade ? ` (${editValues.unidade})` : ""}</Label>
-                    <Input type="number" value={editValues.objetivo} onChange={(e) => setEditValues({ ...editValues, objetivo: e.target.value })} className="h-8 text-[12px] border-none" style={{ background: "hsl(var(--pbi-dark))", color: "hsl(var(--pbi-text-primary))" }} />
+                    <Label className="text-[11px]" style={{ color: "hsl(var(--pbi-text-secondary))" }}>Objetivo{editValues.unidade ? ` (${editValues.unidade})` : ""} <span style={{fontWeight:400,opacity:0.6}}>(opcional)</span></Label>
+                    <Input type="number" value={editValues.objetivo} onChange={(e) => setEditValues({ ...editValues, objetivo: e.target.value })} placeholder={editValues.unidade === "%" ? "100" : "Ex: 50"} className="h-8 text-[12px] border-none" style={{ background: "hsl(var(--pbi-dark))", color: "hsl(var(--pbi-text-primary))" }} />
                   </div>
                 </div>
               </>
@@ -2242,7 +2466,7 @@ export default function Metas() {
               adicionarCampo: metaCampos.adicionarCampo,
               removerCampo: metaCampos.removerCampo,
               customPorTipo: metaCampos.customPorTipo,
-            })}
+            }, usuariosDisponiveis)}
 
             {/* Inputs dos campos extras personalizados */}
             {metaCampos.camposExtras.filter(c => editCamposExtrasAtivos[c.valor]).map(campo => (
@@ -2294,7 +2518,17 @@ export default function Metas() {
               {/* Select de empreendimento */}
               <select
                 value={editValues.obra_id || ""}
-                onChange={(e) => setEditValues({ ...editValues, obra_id: e.target.value })}
+                onChange={(e) => {
+                  const obraId = e.target.value;
+                  const obra = obrasDisponiveis.find(o => o.id === obraId);
+                  const sugs = sugestoesFase.filter(s => s.fase === obra?.etapa_atual);
+                  const sel: Record<string, boolean> = {};
+                  const val: Record<string, string>  = {};
+                  sugs.forEach(s => { sel[s.id] = false; val[s.id] = ""; }); // desmarcadas por padrão na edição
+                  setSelSugEdit(sel);
+                  setValSugEdit(val);
+                  setEditValues({ ...editValues, obra_id: obraId });
+                }}
                 className="w-full h-9 rounded-lg text-[12px] px-3 border outline-none transition-colors cursor-pointer"
                 style={{
                   background: "hsl(var(--card))",

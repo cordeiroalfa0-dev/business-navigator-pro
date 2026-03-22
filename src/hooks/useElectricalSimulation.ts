@@ -18,7 +18,6 @@ export function useElectricalSimulation(
   // Inicializar/reinicializar o motor quando componentes ou wires mudarem
   useEffect(() => {
     if (components.length > 0 || wires.length > 0) {
-      console.log('🔧 Inicializando motor de simulação:', {
         componentes: components.length,
         fios: wires.length,
         componentesComTerminais: components.filter(c => c.terminals?.length > 0).length
@@ -30,7 +29,6 @@ export function useElectricalSimulation(
       if (isActive && engineRef.current) {
         const initialState = engineRef.current.step();
         setSimState(initialState);
-        console.log('⚡ Estado inicial da simulação:', {
           componentesEnergizados: Array.from(initialState.components.values()).filter(c => c.status === 'on').length,
           fiosEnergizados: initialState.energizedWires.size
         });
@@ -75,12 +73,9 @@ export function useElectricalSimulation(
 
     // Iniciar novo timer se ativo e não pausado
     if (isActive && !isPaused && engineRef.current) {
-      console.log(`▶️ Iniciando simulação (velocidade: ${speed}x)`);
       timerRef.current = setInterval(runStep, 100 / speed);
     } else if (isPaused && isActive) {
-      console.log('⏸️ Simulação pausada');
     } else if (!isActive) {
-      console.log('⏹️ Simulação parada');
     }
 
     return () => {
@@ -95,12 +90,10 @@ export function useElectricalSimulation(
   }, []);
 
   const changeSpeed = useCallback((newSpeed: number) => {
-    console.log(`⚙️ Velocidade alterada: ${speed}x → ${newSpeed}x`);
     setSpeed(newSpeed);
   }, [speed]);
 
   const reset = useCallback(() => {
-    console.log('🔄 Resetando simulação');
     if (components.length > 0 || wires.length > 0) {
       engineRef.current = new ElectricalSimulation(components, wires);
       const initialState = engineRef.current.step();

@@ -106,6 +106,11 @@ const sections: ManualSection[] = [
         title: "Gráficos do Módulo",
         body: `O módulo exibe dois gráficos:\n\n**Obras por Etapa** — Quantas obras estão em cada fase\n\n**Progresso Médio por Etapa** — Média de conclusão das obras em cada etapa\n\nAmbos atualizam automaticamente ao cadastrar ou editar obras.`,
       },
+      {
+        id: 9401,
+        title: "Metas vinculadas à obra",
+        body: `Cada obra pode ter metas associadas à sua fase de execução.\n\n**Como ver as metas de uma obra:**\nClique no badge roxo que aparece no card da obra (ex: "3 metas ▼"). A lista expande mostrando o progresso de cada meta.\n\n**As metas criadas por fase aparecem também no módulo Metas** com o badge da obra vinculada.\n\nExemplos de metas por fase:\n- **Fundação:** sondagem do solo, execução de estacas, concretagem\n- **Estrutura:** pilares, vigas, lajes, ART\n- **Alvenaria:** vedação externa/interna, emboço\n- **Instalações:** elétrica, hidráulica, gás\n- **Acabamentos:** piso, pintura, esquadrias, vistoria`,
+      },
     ],
   },
   {

@@ -7,6 +7,7 @@ import { Navigate } from "react-router-dom";
 import {
   Plus, Pencil, Trash2, X, Check, ChevronUp, ChevronDown,
   Rocket, Wrench, Bug, Plug, Loader2, GripVertical,
+  BookOpen, HardHat, FileText, Database, Wifi,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +30,7 @@ interface DevItem {
   id: string;
   titulo: string;
   descricao: string | null;
-  categoria: "feature" | "melhoria" | "correcao" | "integracao";
+  categoria: "feature" | "melhoria" | "correcao" | "integracao" | "modulo";
   prioridade: "baixa" | "media" | "alta" | "critica";
   status: "planejado" | "em_andamento" | "concluido" | "cancelado";
   previsao: string | null;
@@ -50,10 +51,25 @@ const EMPTY_FORM: FormState = {
 
 // ── Configurações visuais ─────────────────────────────────────────────────
 const CATEGORIA_CFG = {
-  feature:    { label: "Feature",     icon: Rocket, color: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
-  melhoria:   { label: "Melhoria",    icon: Wrench, color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  correcao:   { label: "Correção",    icon: Bug,    color: "bg-red-500/15 text-red-400 border-red-500/30" },
-  integracao: { label: "Integração",  icon: Plug,   color: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
+  feature:    { label: "Feature",       icon: Rocket,    color: "bg-blue-500/15 text-blue-400 border-blue-500/30"   },
+  melhoria:   { label: "Melhoria",      icon: Wrench,    color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  correcao:   { label: "Correção",      icon: Bug,       color: "bg-red-500/15 text-red-400 border-red-500/30"     },
+  integracao: { label: "Integração",    icon: Plug,      color: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
+  modulo:     { label: "Novo Módulo",   icon: BookOpen,  color: "bg-teal-500/15 text-teal-400 border-teal-500/30"  },
+};
+
+// ── Item fixo RDO — aparece mesmo antes do SQL ser executado ──────────────
+const RDO_ITEM_FIXO = {
+  id: "__rdo_fixo__",
+  titulo: "Diário de Obra (RDO)",
+  descricao: "Registro diário de atividades, efetivo presente, condições climáticas, ocorrências e fotos. Vinculado à Execução de Obra. Exportável como PDF no padrão RDO.",
+  categoria: "modulo" as const,
+  prioridade: "alta" as const,
+  status: "planejado" as const,
+  previsao: "Q2 2026",
+  ordem: 9999,
+  created_at: new Date().toISOString(),
+  _fixo: true,
 };
 
 const PRIORIDADE_CFG = {
@@ -206,15 +222,20 @@ export default function Desenvolvimento() {
   };
 
   // ── Filtros ─────────────────────────────────────────────────────────────
-  const filtered = filterStatus === "todos"
+  // Injetar o item fixo RDO se não existir ainda no banco
+  const itemsComRdo = items.some(i => i.titulo === "Diário de Obra (RDO)")
     ? items
-    : items.filter(i => i.status === filterStatus);
+    : [...items, RDO_ITEM_FIXO as any];
+
+  const filtered = filterStatus === "todos"
+    ? itemsComRdo
+    : itemsComRdo.filter((i: any) => i.status === filterStatus);
 
   const counts = {
-    planejado:    items.filter(i => i.status === "planejado").length,
-    em_andamento: items.filter(i => i.status === "em_andamento").length,
-    concluido:    items.filter(i => i.status === "concluido").length,
-    cancelado:    items.filter(i => i.status === "cancelado").length,
+    planejado:    itemsComRdo.filter((i: any) => i.status === "planejado").length,
+    em_andamento: itemsComRdo.filter((i: any) => i.status === "em_andamento").length,
+    concluido:    itemsComRdo.filter((i: any) => i.status === "concluido").length,
+    cancelado:    itemsComRdo.filter((i: any) => i.status === "cancelado").length,
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -298,19 +319,19 @@ export default function Desenvolvimento() {
                   item.status === "concluido" ? "opacity-60" : ""
                 } ${item.status === "cancelado" ? "opacity-40" : ""}`}
               >
-                {/* Reorder */}
+                {/* Reorder — desabilitar para item fixo */}
                 <div className="flex flex-col gap-0.5 pt-0.5 shrink-0">
                   <button
-                    onClick={() => moveItem(item.id, "up")}
-                    disabled={isFirst}
+                    onClick={() => !(item as any)._fixo && moveItem(item.id, "up")}
+                    disabled={isFirst || !!(item as any)._fixo}
                     className="p-0.5 rounded text-muted-foreground/40 hover:text-muted-foreground disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronUp className="w-3.5 h-3.5" />
                   </button>
                   <GripVertical className="w-3.5 h-3.5 text-muted-foreground/20 mx-auto" />
                   <button
-                    onClick={() => moveItem(item.id, "down")}
-                    disabled={isLast}
+                    onClick={() => !(item as any)._fixo && moveItem(item.id, "down")}
+                    disabled={isLast || !!(item as any)._fixo}
                     className="p-0.5 rounded text-muted-foreground/40 hover:text-muted-foreground disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronDown className="w-3.5 h-3.5" />
@@ -358,24 +379,33 @@ export default function Desenvolvimento() {
                   </div>
                 </div>
 
-                {/* Ações */}
+                {/* Ações — desabilitar para itens fixos */}
                 <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-7 h-7"
-                    onClick={() => openEdit(item)}
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-7 h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => setDeleteId(item.id)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+                  {!(item as any)._fixo && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-7 h-7"
+                        onClick={() => openEdit(item)}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-7 h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setDeleteId(item.id)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </>
+                  )}
+                  {(item as any)._fixo && (
+                    <span className="text-[10px] text-muted-foreground px-2 py-1 rounded bg-secondary">
+                      SQL pendente
+                    </span>
+                  )}
                 </div>
               </div>
             );

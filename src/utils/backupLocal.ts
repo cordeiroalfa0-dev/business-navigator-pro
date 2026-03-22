@@ -15,7 +15,7 @@ const DATA_TABLES = [
   "faturamento", "contas_pagar", "contas_receber",
   "empreendimentos", "contratos", "materiais",
   "execucao_obras",
-  "meta_predictions", "meta_dependencies",
+  "meta_predictions", "meta_dependencies", "metas_sugestoes_fase",
   "ativos_remo", "ativos_fotos", "ativos_envios",
   "dev_roadmap",
 ];
@@ -73,12 +73,10 @@ export async function generateLocalBackup(): Promise<BackupData> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Usuário não autenticado");
 
-  console.log(`[EXPORT] Iniciado por: ${user.email}`);
 
   const tableData: Record<string, any[]> = {};
   for (const table of ALL_TABLES) {
     tableData[table] = await fetchTableWithTimeout(table);
-    console.log(`[EXPORT] ${table}: ${tableData[table].length} registros`);
   }
 
   const sqlParts: string[] = [
@@ -104,7 +102,6 @@ export async function generateLocalBackup(): Promise<BackupData> {
     metadata,
   };
 
-  console.log(`[EXPORT] ✅ Concluído. Total: ${total} registros`);
   return backup;
 }
 
@@ -128,7 +125,6 @@ export async function restoreLocalBackup(backupData: BackupData, scope: "system"
       }
     }
     restored[name] = count;
-    console.log(`[IMPORT] ${name}: ${count}/${rows.length} restaurados`);
   };
 
   const tablesToRestore = scope === "system" ? SYSTEM_TABLES : scope === "database" ? DATA_TABLES : ALL_TABLES;
@@ -137,6 +133,5 @@ export async function restoreLocalBackup(backupData: BackupData, scope: "system"
   }
 
   const total = Object.values(restored).reduce((a, b) => a + b, 0);
-  console.log(`[IMPORT] ✅ Restauração concluída. Total: ${total} registros`);
   return restored;
 }

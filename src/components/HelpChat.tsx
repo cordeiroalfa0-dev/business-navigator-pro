@@ -5,12 +5,11 @@ import {
   ChevronRight, Lock, User, LayoutDashboard, Zap,
   Trophy, ClipboardPlus, BookOpen, Lightbulb,
   AlertTriangle, FileText, Bell, Paperclip, LogOut,
-  HelpCircle as HelpIcon, Warehouse,
+  HelpCircle as HelpIcon, Warehouse, BookMarked,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 // Mapa: módulo do sistema → categoria(s) da central de ajuda que ele desbloqueia
-// Categorias não listadas aqui são SEMPRE visíveis (universais)
 const MODULE_TO_CATEGORIES: Record<string, string[]> = {
   metas:           ["Metas"],
   metas_avancadas: ["Metas Avançadas"],
@@ -21,10 +20,10 @@ const MODULE_TO_CATEGORIES: Record<string, string[]> = {
   importacao:      ["Importação de Dados"],
   cadastro:        ["Cadastro de Dados"],
   almoxarifado:    ["Almoxarifado"],
-  ranking:         ["Relatórios"], // ranking aparece dentro de Relatórios
+  diario_obra:     ["Diário de Obra"],
+  ranking:         ["Relatórios"],
 };
 
-// Categorias sempre visíveis independente dos módulos
 const UNIVERSAL_CATEGORIES = new Set([
   "Acesso e Login",
   "Dashboard",
@@ -39,11 +38,11 @@ const UNIVERSAL_CATEGORIES = new Set([
 // ─────────────────────────────────────────────────────────────
 // TIPOS
 // ─────────────────────────────────────────────────────────────
-type UserRole = "admin" | "master" | "normal" | null;
+type UserRole = "admin" | "master" | "normal" | "engenheiro" | null;
 
 interface Step {
   text: string;
-  roles?: Array<"admin" | "master" | "normal">;
+  roles?: Array<"admin" | "master" | "normal" | "engenheiro">;
 }
 
 interface HelpTopic {
@@ -53,10 +52,11 @@ interface HelpTopic {
   icon: string;
   keywords: string[];
   question: string;
-  visibleTo: Array<"admin" | "master" | "normal">;
+  visibleTo: Array<"admin" | "master" | "normal" | "engenheiro">;
   steps: Step[];
   tip?: string;
   restrictedMessage?: string;
+  answer?: string;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -558,11 +558,11 @@ const allTopics: HelpTopic[] = [
       { text: "Acesse 'Usuários' no menu lateral" },
       { text: "Clique em '+ Novo Usuário'" },
       { text: "Informe: nome completo e e-mail corporativo" },
-      { text: "Defina o perfil de acesso: Normal, Master ou Admin" },
+      { text: "Defina o perfil de acesso: Normal, Master, Admin ou Engenheiro" },
       { text: "O sistema enviará um e-mail com o link de acesso para o usuário" },
       { text: "No primeiro acesso, o usuário define sua própria senha" },
     ],
-    tip: "Normal: acessa metas e obras básico. Master: acessa financeiro. Admin: acesso total.",
+    tip: "Normal: acessa metas e obras básico. Master: acessa financeiro. Admin: acesso total. Engenheiro: cria e visualiza RDOs.",
   },
   {
     id: 32, category: "Gerenciar Usuários", categoryIcon: Users, icon: "👥",
@@ -822,6 +822,66 @@ const allTopics: HelpTopic[] = [
       { text: "Clique em qualquer card para ver os detalhes completos e fotos do ativo" },
     ],
   },
+
+  // ── DIÁRIO DE OBRA ───────────────────────────────────────
+  {
+    id: 48, category: "Diário de Obra", categoryIcon: BookMarked, icon: "📋",
+    keywords: ["rdo", "diário obra", "criar rdo", "novo rdo", "relatório diário", "registro diário"],
+    question: "Como criar um Diário de Obra (RDO)?",
+    visibleTo: ["admin", "master", "engenheiro"],
+    steps: [
+      { text: "Acesse 'Diário de Obra' no menu lateral" },
+      { text: "Clique em 'Novo RDO'" },
+      { text: "Selecione a obra vinculada (opcional) e a data" },
+      { text: "Informe o clima da manhã e tarde" },
+      { text: "Cadastre o efetivo: função, quantidade e horas" },
+      { text: "Descreva as atividades executadas no dia" },
+      { text: "Registre ocorrências, equipamentos e materiais (opcional)" },
+      { text: "Adicione fotos (máximo 5 por RDO)" },
+      { text: "Clique em 'Salvar RDO'" },
+    ],
+    tip: "O campo 'Atividades do dia' é obrigatório. Os demais são opcionais.",
+  },
+  {
+    id: 49, category: "Diário de Obra", categoryIcon: BookMarked, icon: "📋",
+    keywords: ["exportar rdo", "download rdo", "txt rdo", "baixar rdo"],
+    question: "Como exportar o RDO?",
+    visibleTo: ["admin", "master", "engenheiro"],
+    steps: [
+      { text: "Na lista de RDOs, clique no ícone de download (⬇) do registro" },
+      { text: "Ou abra o RDO e clique em 'Exportar TXT' no canto superior" },
+      { text: "O arquivo é salvo automaticamente no seu computador" },
+    ],
+    tip: "O TXT contém todas as informações do RDO formatadas: clima, efetivo, atividades, ocorrências e URLs das fotos.",
+  },
+  {
+    id: 50, category: "Diário de Obra", categoryIcon: BookMarked, icon: "📋",
+    keywords: ["permissão rdo", "quem cria rdo", "acesso rdo", "engenheiro rdo"],
+    question: "Quem pode criar e editar RDOs?",
+    visibleTo: ["admin", "master", "engenheiro", "normal"],
+    steps: [
+      { text: "Admin e Master: criam, editam e excluem qualquer RDO", roles: ["admin", "master"] },
+      { text: "Engenheiro: cria e visualiza RDOs (perfil específico para obra)", roles: ["admin", "master"] },
+      { text: "Normal e Almoxarife: somente visualização" },
+      { text: "Para criar um usuário Engenheiro: acesse Usuários → Novo Usuário → Tipo: Engenheiro", roles: ["admin"] },
+    ],
+    tip: "O perfil 'Engenheiro' é criado especificamente para responsáveis de obra que precisam registrar RDOs.",
+  },
+  {
+    id: 51, category: "Diário de Obra", categoryIcon: BookMarked, icon: "📋",
+    keywords: ["relatório rdo", "relatório diário obra", "kpi rdo", "análise rdo"],
+    question: "Como ver os relatórios do Diário de Obra?",
+    visibleTo: ["admin", "master"],
+    restrictedMessage: "Os relatórios de RDO são acessíveis apenas para administradores e masters.",
+    steps: [
+      { text: "Acesse 'Relatórios' no menu lateral" },
+      { text: "Selecione 'Diário de Obra (RDO)' na barra de módulos" },
+      { text: "Veja KPIs: total de RDOs, trabalhadores, homem-hora e ocorrências" },
+      { text: "Filtre por período usando os campos de data" },
+      { text: "No Relatório Completo, o Diário de Obra aparece automaticamente" },
+    ],
+    tip: "O módulo 'Diário de Obra' precisa estar ativado no Gerenciar Módulos para aparecer no menu.",
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -848,17 +908,16 @@ const fuzzyMatch = (text: string, query: string): boolean => {
 };
 
 const roleLabel: Record<NonNullable<UserRole>, string> = {
-  admin: "Administrador", master: "Master", normal: "Usuário",
+  admin: "Administrador", master: "Master", normal: "Usuário", engenheiro: "Engenheiro",
 };
 
-// Cores alinhadas ao tema PBI do sistema
 const ROLE_STYLE: Record<NonNullable<UserRole>, { bg: string; text: string }> = {
-  admin:  { bg: "bg-red-500/15",    text: "text-red-400" },
-  master: { bg: "bg-yellow-500/15", text: "text-yellow-400" },
-  normal: { bg: "bg-blue-500/15",   text: "text-blue-400" },
+  admin:      { bg: "bg-red-500/15",    text: "text-red-400" },
+  master:     { bg: "bg-yellow-500/15", text: "text-yellow-400" },
+  normal:     { bg: "bg-blue-500/15",   text: "text-blue-400" },
+  engenheiro: { bg: "bg-teal-500/15",   text: "text-teal-400" },
 };
 
-// Cores de categoria usando variáveis do sistema
 const CAT_COLOR: Record<string, { bg: string; text: string; dot: string }> = {
   "Acesso e Login":       { bg: "bg-muted",            text: "text-muted-foreground",  dot: "bg-muted-foreground" },
   "Dashboard":            { bg: "bg-blue-500/10",      text: "text-blue-400",           dot: "bg-blue-400" },
@@ -877,6 +936,7 @@ const CAT_COLOR: Record<string, { bg: string; text: string; dot: string }> = {
   "Notificações":         { bg: "bg-yellow-500/10",    text: "text-yellow-400",         dot: "bg-yellow-400" },
   "Problemas e Soluções": { bg: "bg-rose-500/10",      text: "text-rose-400",           dot: "bg-rose-400" },
   "Almoxarifado":         { bg: "bg-orange-500/10",    text: "text-orange-400",         dot: "bg-orange-400" },
+  "Diário de Obra":       { bg: "bg-sky-500/10",       text: "text-sky-400",            dot: "bg-sky-400" },
 };
 
 const catStyle = (cat: string) =>
@@ -917,7 +977,9 @@ function TopicBtn({
 // ─────────────────────────────────────────────────────────────
 export function HelpChat() {
   const { user, userRole: authRole, enabledModules, signOut } = useAuth();
-  const userRole = authRole as UserRole;
+
+  // ── FIX: garante que userRole nunca seja undefined ────────
+  const userRole = (authRole ?? null) as UserRole;
 
   const [isOpen, setIsOpen]               = useState(false);
   const [query, setQuery]                 = useState("");
@@ -927,6 +989,9 @@ export function HelpChat() {
   const [history, setHistory]             = useState<number[]>([]);
   const [pulse, setPulse]                 = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // ── FIX: enabledModules com fallback seguro ───────────────
+  const safeModules = enabledModules ?? {};
 
   useEffect(() => {
     try {
@@ -945,58 +1010,79 @@ export function HelpChat() {
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 150);
   }, [isOpen]);
 
-  // ── Calcula categorias visíveis para este usuário ─────────────────────
+  // ── Calcula categorias visíveis para este usuário ─────────
   const visibleCategories = useCallback((): Set<string> => {
+    // sem role: nenhuma categoria
+    if (!userRole) return new Set();
     // admin e master veem tudo
     if (userRole === "admin" || userRole === "master") {
       return new Set(allTopics.map(t => t.category));
     }
-    // normal: começa pelas universais e adiciona as dos módulos habilitados
+    // engenheiro: categorias universais + diário de obra
+    if (userRole === "engenheiro") {
+      const cats = new Set<string>(UNIVERSAL_CATEGORIES);
+      cats.add("Diário de Obra");
+      return cats;
+    }
+    // normal: universais + módulos habilitados
     const cats = new Set<string>(UNIVERSAL_CATEGORIES);
     for (const [moduleKey, categories] of Object.entries(MODULE_TO_CATEGORIES)) {
-      if (enabledModules[moduleKey] === true) {
+      if (safeModules[moduleKey] === true) {
         categories.forEach(c => cats.add(c));
       }
     }
     return cats;
-  }, [userRole, enabledModules]);
+  }, [userRole, safeModules]);
 
-  // ── Verifica se tópico é visível (role + módulo) ──────────────────────
+  // ── FIX: guard completo em hasAccess ──────────────────────
   const hasAccess = useCallback(
     (t: HelpTopic) => {
+      // sem role: sem acesso
       if (!userRole) return false;
+      // tópico sem visibleTo definido: nega por segurança
+      if (!Array.isArray(t.visibleTo)) return false;
+      // verifica se a role do usuário está na lista do tópico
       if (!t.visibleTo.includes(userRole)) return false;
       // admin e master: acesso total
       if (userRole === "admin" || userRole === "master") return true;
-      // normal: verifica categoria liberada por módulo
+      // demais roles: verifica se a categoria está liberada
       return visibleCategories().has(t.category);
     },
     [userRole, visibleCategories]
   );
 
-  // ── Tópicos acessíveis para este usuário (usados nas categorias e busca) ─
+  // ── FIX: guard completo em accessibleTopics ───────────────
   const accessibleTopics = useCallback(() => {
+    // sem role: retorna lista vazia
+    if (!userRole) return [];
     const cats = visibleCategories();
     return allTopics.filter(t =>
-      t.visibleTo.includes(userRole as any) &&
+      // FIX: verifica Array.isArray antes de chamar .includes
+      Array.isArray(t.visibleTo) &&
+      t.visibleTo.includes(userRole) &&
       cats.has(t.category)
     );
   }, [userRole, visibleCategories]);
 
-  const stepsForUser = (steps: Step[]) =>
-    steps.filter(s => !s.roles || (!!userRole && s.roles.includes(userRole as any)));
+  // ── FIX: guard em stepsForUser ────────────────────────────
+  const stepsForUser = (steps: Step[]) => {
+    if (!userRole) return steps.filter(s => !s.roles);
+    return steps.filter(s =>
+      !s.roles ||
+      (Array.isArray(s.roles) && s.roles.includes(userRole as any))
+    );
+  };
 
   const searchResults = useCallback(() => {
     if (!query.trim()) return [];
     const q = normalize(query);
     return accessibleTopics().filter(t =>
-      t.keywords.some(k => fuzzyMatch(normalize(k), q)) ||
+      (Array.isArray(t.keywords) && t.keywords.some(k => fuzzyMatch(normalize(k), q))) ||
       fuzzyMatch(normalize(t.question), q) ||
       fuzzyMatch(normalize(t.category), q)
     );
   }, [query, accessibleTopics]);
 
-  // Categorias visíveis com ícone (somente as que têm tópicos acessíveis)
   const categories = Array.from(
     new Map(
       accessibleTopics().map(t => [t.category, t.categoryIcon])
@@ -1004,11 +1090,17 @@ export function HelpChat() {
   );
 
   const topicsByCategory = (cat: string) =>
-    allTopics.filter(t => t.category === cat && t.visibleTo.includes(userRole as any));
+    allTopics.filter(t =>
+      t.category === cat &&
+      Array.isArray(t.visibleTo) &&
+      (userRole ? t.visibleTo.includes(userRole) : false)
+    );
 
   const historyTopics = history
     .map(id => allTopics.find(t => t.id === id))
-    .filter(t => t && accessibleTopics().some(a => a.id === t!.id)) as HelpTopic[];
+    .filter((t): t is HelpTopic =>
+      !!t && accessibleTopics().some(a => a.id === t.id)
+    );
 
   const saveToHistory = (id: number) => {
     const updated = [id, ...history.filter(h => h !== id)].slice(0, MAX_HISTORY);
@@ -1043,10 +1135,11 @@ export function HelpChat() {
     setSelectedCategory(null);
   };
 
-  // Saudação contextual baseada nos módulos habilitados
   const greetingContext = useCallback((): string => {
+    if (!userRole) return "Como posso ajudar você hoje?";
     if (userRole === "admin" || userRole === "master") return "Como posso ajudar você hoje?";
-    const ativos = Object.entries(enabledModules)
+    if (userRole === "engenheiro") return "Central de ajuda — Diário de Obra.";
+    const ativos = Object.entries(safeModules)
       .filter(([, v]) => v)
       .map(([k]) => k);
     if (ativos.length === 1) {
@@ -1059,7 +1152,7 @@ export function HelpChat() {
       return `Central de ajuda do módulo ${labels[ativos[0]] ?? ativos[0]}.`;
     }
     return "Como posso ajudar você hoje?";
-  }, [userRole, enabledModules]);
+  }, [userRole, safeModules]);
 
   const firstName = (user?.user_metadata?.full_name as string | undefined)?.split(" ")[0] ?? "";
   const cs        = catStyle(selectedCategory ?? "");
@@ -1113,7 +1206,7 @@ export function HelpChat() {
         >
 
           {/* ── Header ──────────────────────────────────── */}
-          <div className="shrink-0 border-b border-sidebar-border" style={{ background: "hsl(0, 0%, 10%)" }}>
+          <div className="shrink-0 border-b border-sidebar-border" style={{ background: "hsl(215, 52%, 8%)" }}>
             <div className="flex items-center justify-between px-4 pt-4 pb-3">
               <div className="flex items-center gap-2.5">
                 {view !== "home" && (
@@ -1153,7 +1246,7 @@ export function HelpChat() {
                 onChange={e => { setQuery(e.target.value); setView(e.target.value ? "search" : "home"); }}
                 placeholder="Pesquise sua dúvida..."
                 className="w-full pl-8 pr-8 py-2 rounded-md text-[12px] outline-none transition-colors border border-sidebar-border focus:border-primary placeholder:text-sidebar-muted text-sidebar-foreground"
-                style={{ background: "hsl(0, 0%, 14%)" }}
+                style={{ background: "hsl(215, 45%, 12%)" }}
               />
               {query && (
                 <button onClick={() => { setQuery(""); setView("home"); }}
@@ -1172,7 +1265,7 @@ export function HelpChat() {
               <div className="p-4 space-y-4">
 
                 {/* Boas vindas */}
-                <div className="rounded-md p-3 border border-sidebar-border" style={{ background: "hsl(0, 0%, 12%)" }}>
+                <div className="rounded-md p-3 border border-sidebar-border" style={{ background: "hsl(215, 48%, 10%)" }}>
                   <p className="text-[13px] font-semibold text-sidebar-accent-foreground">
                     {firstName ? `Olá, ${firstName}! 👋` : "Olá! 👋"}
                   </p>
@@ -1209,7 +1302,7 @@ export function HelpChat() {
                           key={cat}
                           onClick={() => { setSelectedCategory(cat); setView("category"); }}
                           className="group flex flex-col gap-2 p-3 rounded-md text-left border border-sidebar-border hover:border-primary/40 transition-all duration-150 hover:bg-sidebar-accent/40"
-                          style={{ background: "hsl(0, 0%, 12%)" }}
+                          style={{ background: "hsl(215, 48%, 10%)" }}
                         >
                           <div className={`w-7 h-7 rounded-md flex items-center justify-center ${cst.bg} ${cst.text}`}>
                             <Icon className="w-3.5 h-3.5" />
@@ -1231,7 +1324,7 @@ export function HelpChat() {
               <div className="p-4">
                 {searchResults().length === 0 ? (
                   <div className="text-center py-12">
-                    <div className="w-12 h-12 rounded-md mx-auto flex items-center justify-center mb-3 border border-sidebar-border" style={{ background: "hsl(0, 0%, 12%)" }}>
+                    <div className="w-12 h-12 rounded-md mx-auto flex items-center justify-center mb-3 border border-sidebar-border" style={{ background: "hsl(215, 48%, 10%)" }}>
                       <Search className="w-5 h-5 text-sidebar-muted" />
                     </div>
                     <p className="text-[12px] font-semibold text-sidebar-foreground">Nenhum resultado</p>
@@ -1298,7 +1391,7 @@ export function HelpChat() {
                       {/* Passos */}
                       <div className="space-y-1.5">
                         {stepsForUser(selectedTopic.steps).map((step, i) => (
-                          <div key={i} className="flex gap-2.5 p-2.5 rounded-md border border-sidebar-border" style={{ background: "hsl(0, 0%, 12%)" }}>
+                          <div key={i} className="flex gap-2.5 p-2.5 rounded-md border border-sidebar-border" style={{ background: "hsl(215, 48%, 10%)" }}>
                             <div className="w-5 h-5 rounded shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
                               style={{ background: "hsl(var(--pbi-yellow))", color: "hsl(var(--pbi-dark))" }}>
                               {i + 1}
@@ -1340,7 +1433,7 @@ export function HelpChat() {
           </div>
 
           {/* ── Footer ──────────────────────────────────── */}
-          <div className="shrink-0 px-4 py-3 border-t border-sidebar-border flex items-center justify-between gap-3" style={{ background: "hsl(0, 0%, 10%)" }}>
+          <div className="shrink-0 px-4 py-3 border-t border-sidebar-border flex items-center justify-between gap-3" style={{ background: "hsl(215, 52%, 8%)" }}>
             <div className="min-w-0">
               <p className="text-[11px] font-medium text-sidebar-accent-foreground truncate leading-tight">
                 {user?.user_metadata?.full_name ?? user?.email ?? "Usuário"}

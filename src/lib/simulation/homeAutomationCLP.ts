@@ -517,7 +517,6 @@ export class SmartLightingModule extends HomeAutomationModule {
   }
 
   protected onStart(): void {
-    console.log('🔆 Sistema de Iluminação Iniciado');
     
     // Inicializar valores
     this.brightnessLevels.set('main_light', 0);
@@ -530,7 +529,6 @@ export class SmartLightingModule extends HomeAutomationModule {
   }
 
   protected onStop(): void {
-    console.log('🔆 Sistema de Iluminação Parado');
     
     // Desligar todas as luzes suavemente
     this.setOutput('main_light', 0, 1000);
@@ -707,15 +705,12 @@ export class SmartLightingModule extends HomeAutomationModule {
   }
 
   protected onInputChanged(inputId: string, value: any): void {
-    console.log(`🔆 Input changed: ${inputId} = ${value}`);
   }
 
   protected onOutputChanged(outputId: string, value: any): void {
-    console.log(`🔆 Output changed: ${outputId} = ${value}`);
   }
 
   protected onParameterChanged(parameterId: string, value: any): void {
-    console.log(`🔆 Parameter changed: ${parameterId} = ${value}`);
   }
 }
 
@@ -877,12 +872,10 @@ export class SmartClimateModule extends HomeAutomationModule {
   }
 
   protected onStart(): void {
-    console.log('❄️ Sistema de Climatização Iniciado');
     this.loadComfortHistory();
   }
 
   protected onStop(): void {
-    console.log('❄️ Sistema de Climatização Parado');
     this.setOutput('ac_power', false);
   }
 
@@ -1060,7 +1053,6 @@ export class SmartClimateModule extends HomeAutomationModule {
   }
 
   protected onInputChanged(inputId: string, value: any): void {
-    console.log(`❄️ Input changed: ${inputId} = ${value}`);
     
     // Notificar mudanças importantes
     if (inputId === 'window_sensor' && value) {
@@ -1069,11 +1061,9 @@ export class SmartClimateModule extends HomeAutomationModule {
   }
 
   protected onOutputChanged(outputId: string, value: any): void {
-    console.log(`❄️ Output changed: ${outputId} = ${value}`);
   }
 
   protected onParameterChanged(parameterId: string, value: any): void {
-    console.log(`❄️ Parameter changed: ${parameterId} = ${value}`);
   }
 }
 

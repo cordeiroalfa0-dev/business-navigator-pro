@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     if (roleRow?.role !== "admin") throw new Error("Not authorized");
     const { user_id, role } = await req.json();
     if (!user_id || !role) throw new Error("Missing required fields");
-    if (!["admin", "master", "normal"].includes(role)) throw new Error("Invalid role");
+    if (!["admin", "master", "normal", "almoxarife"].includes(role)) throw new Error("Invalid role");
     if (user_id === caller.id) throw new Error("Cannot change own role");
     const { data: existing } = await adminClient.from("user_roles").select("id").eq("user_id", user_id).maybeSingle();
     if (existing) {

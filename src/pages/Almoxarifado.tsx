@@ -7,7 +7,7 @@ import {
   Package, Plus, Search, Filter, ArrowRightLeft, Eye, Trash2,
   X, Upload, ChevronLeft, ChevronRight, Loader2, History,
   MapPin, Box, Info, Send, Image as ImageIcon, AlertCircle,
-  Warehouse, PlusCircle,
+  Warehouse, PlusCircle, ZoomIn, Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -152,99 +152,284 @@ function DestinoSelect({
 }
 
 // ── Modal Detalhes ─────────────────────────────────────────────────────────
-function ModalDetalhes({ ativo, onClose }: { ativo: Ativo; onClose: () => void }) {
-  const [fotoIdx, setFotoIdx] = useState(0);
+function ModalDetalhes({
+  ativo, onClose, canEdit, onFotoDeleted,
+}: {
+  ativo: Ativo;
+  onClose: () => void;
+  canEdit: boolean;
+  onFotoDeleted: (fotoId: string) => void;
+}) {
+  const [fotoIdx, setFotoIdx]       = useState(0);
+  const [lightbox, setLightbox]     = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { toast } = useToast();
   const fotos = ativo.ativos_fotos ?? [];
 
+  // Garantir que idx não ultrapasse o array após remoção
+  const idxSafe = Math.min(fotoIdx, Math.max(fotos.length - 1, 0));
+
+  const handleDeleteFoto = async (foto: AtivoFoto) => {
+    if (!confirm(`Excluir a foto "${foto.nome_arquivo}"?`)) return;
+    setDeletingId(foto.id);
+    try {
+      // Remover do storage
+      const path = foto.url_imagem.split("/fotos-materiais/")[1];
+      if (path) await supabase.storage.from("fotos-materiais").remove([path]);
+      // Remover do banco
+      const { error } = await supabase.from("ativos_fotos").delete().eq("id", foto.id);
+      if (error) throw error;
+      onFotoDeleted(foto.id);
+      toast({ title: "Foto removida" });
+      // Ajustar índice
+      if (idxSafe >= fotos.length - 1) setFotoIdx(Math.max(0, fotos.length - 2));
+    } catch (err: any) {
+      toast({ title: "Erro ao remover foto", description: err.message, variant: "destructive" });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl p-0 overflow-hidden">
-        <div className="flex flex-col md:flex-row h-full">
-          <div className="w-full md:w-3/5 bg-muted relative aspect-square md:aspect-auto min-h-[280px] flex items-center justify-center">
-            {fotos.length > 0 ? (
-              <>
-                <img src={fotos[fotoIdx].url_imagem} alt={ativo.nome} className="w-full h-full object-cover" />
-                {fotos.length > 1 && (
-                  <>
-                    <button onClick={() => setFotoIdx(i => (i - 1 + fotos.length) % fotos.length)}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-background/80 rounded-full flex items-center justify-center hover:bg-background transition-colors">
-                      <ChevronLeft className="w-4 h-4" />
+    <>
+      <Dialog open onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+          <div className="flex flex-col md:flex-row h-full">
+
+            {/* ── Área da imagem principal ── */}
+            <div className="w-full md:w-3/5 bg-muted relative aspect-square md:aspect-auto min-h-[280px] flex items-center justify-center">
+              {fotos.length > 0 ? (
+                <>
+                  {/* Imagem principal */}
+                  <img
+                    src={fotos[idxSafe].url_imagem}
+                    alt={ativo.nome}
+                    className="w-full h-full object-cover cursor-zoom-in"
+                    onClick={() => setLightbox(true)}
+                  />
+
+                  {/* Botão zoom */}
+                  <button
+                    onClick={() => setLightbox(true)}
+                    className="absolute top-3 right-3 w-8 h-8 bg-background/80 rounded-full flex items-center justify-center hover:bg-background transition-colors"
+                    title="Ampliar">
+                    <ZoomIn className="w-4 h-4" />
+                  </button>
+
+                  {/* Botão excluir foto */}
+                  {canEdit && (
+                    <button
+                      onClick={() => handleDeleteFoto(fotos[idxSafe])}
+                      disabled={deletingId === fotos[idxSafe].id}
+                      className="absolute top-3 right-14 w-8 h-8 bg-destructive/80 rounded-full flex items-center justify-center hover:bg-destructive transition-colors disabled:opacity-50"
+                      title="Excluir esta foto">
+                      <Trash2 className="w-3.5 h-3.5 text-white" />
                     </button>
-                    <button onClick={() => setFotoIdx(i => (i + 1) % fotos.length)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-background/80 rounded-full flex items-center justify-center hover:bg-background transition-colors">
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                      {fotos.map((_, i) => (
-                        <button key={i} onClick={() => setFotoIdx(i)}
-                          className={`h-1.5 rounded-full transition-all ${i === fotoIdx ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/40"}`} />
-                      ))}
+                  )}
+
+                  {/* Navegação prev/next */}
+                  {fotos.length > 1 && (
+                    <>
+                      <button onClick={() => setFotoIdx(i => (i - 1 + fotos.length) % fotos.length)}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-background/80 rounded-full flex items-center justify-center hover:bg-background transition-colors">
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => setFotoIdx(i => (i + 1) % fotos.length)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-background/80 rounded-full flex items-center justify-center hover:bg-background transition-colors">
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+
+                  {/* Contador + dots */}
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5">
+                    <span className="text-[10px] bg-background/70 px-2 py-0.5 rounded-full text-foreground font-medium">
+                      {idxSafe + 1} / {fotos.length}
+                    </span>
+                    {fotos.length > 1 && (
+                      <div className="flex gap-1.5">
+                        {fotos.map((_, i) => (
+                          <button key={i} onClick={() => setFotoIdx(i)}
+                            className={`h-1.5 rounded-full transition-all ${i === idxSafe ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/40"}`} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Código REMO */}
+                  <Badge className="absolute top-3 left-3 font-mono text-xs" variant="secondary">
+                    {ativo.codigo_remo}
+                  </Badge>
+                </>
+              ) : (
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <Camera className="w-16 h-16 opacity-20" />
+                  <span className="text-xs">Sem imagens</span>
+                </div>
+              )}
+            </div>
+
+            {/* ── Painel direito ── */}
+            <div className="w-full md:w-2/5 p-6 flex flex-col gap-4 overflow-y-auto">
+              <div className="flex items-start justify-between">
+                <div>
+                  {ativo.categoria && <p className="text-xs text-muted-foreground mb-1">{ativo.categoria}</p>}
+                  <h2 className="text-xl font-semibold">{ativo.nome}</h2>
+                </div>
+                <button onClick={onClose} className="p-1.5 rounded hover:bg-muted transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span className="text-[11px] font-medium">Localização</span>
+                  </div>
+                  <p className="text-sm font-semibold">{ativo.destino}</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                    <Box className="w-3.5 h-3.5" />
+                    <span className="text-[11px] font-medium">Quantidade</span>
+                  </div>
+                  <p className="text-sm font-semibold">{ativo.quantidade} un.</p>
+                </div>
+              </div>
+
+              {ativo.descricao && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-muted-foreground mb-2">
+                    <Info className="w-3.5 h-3.5" />
+                    <span className="text-[11px] font-medium">Descrição</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{ativo.descricao}</p>
+                </div>
+              )}
+
+              {/* ── Galeria de thumbnails ── */}
+              {fotos.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Camera className="w-3.5 h-3.5" />
+                      <span className="text-[11px] font-medium">
+                        Fotos ({fotos.length})
+                      </span>
                     </div>
-                  </>
-                )}
-              </>
-            ) : (
-              <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                <Package className="w-16 h-16 opacity-20" />
-                <span className="text-xs">Sem imagens</span>
-              </div>
-            )}
-            <Badge className="absolute top-3 left-3 font-mono text-xs" variant="secondary">
-              {ativo.codigo_remo}
-            </Badge>
-          </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {fotos.map((foto, i) => (
+                      <div key={foto.id} className="relative group aspect-square rounded-md overflow-hidden border-2 transition-all cursor-pointer"
+                        style={{ borderColor: i === idxSafe ? "hsl(var(--primary))" : "transparent" }}
+                        onClick={() => setFotoIdx(i)}>
+                        <img
+                          src={foto.url_imagem}
+                          alt={`Foto ${i + 1}`}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        {/* Overlay com botão excluir no hover */}
+                        {canEdit && (
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
+                            <button
+                              onClick={e => { e.stopPropagation(); handleDeleteFoto(foto); }}
+                              disabled={deletingId === foto.id}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity w-7 h-7 bg-destructive rounded-full flex items-center justify-center disabled:opacity-50"
+                              title="Excluir foto">
+                              <Trash2 className="w-3 h-3 text-white" />
+                            </button>
+                          </div>
+                        )}
+                        {/* Badge da foto atual */}
+                        {i === idxSafe && (
+                          <div className="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                    Clique para selecionar · {canEdit ? "Passe o mouse para excluir" : ""}
+                  </p>
+                </div>
+              )}
 
-          <div className="w-full md:w-2/5 p-6 flex flex-col gap-4 overflow-y-auto">
-            <div className="flex items-start justify-between">
-              <div>
-                {ativo.categoria && <p className="text-xs text-muted-foreground mb-1">{ativo.categoria}</p>}
-                <h2 className="text-xl font-semibold">{ativo.nome}</h2>
+              <div className="mt-auto pt-4 border-t border-border text-[11px] text-muted-foreground space-y-1">
+                <div className="flex justify-between">
+                  <span>Registrado por</span><span>{ativo.usuario_nome ?? "Sistema"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Data</span>
+                  <span>{format(new Date(ativo.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
+                </div>
               </div>
-              <button onClick={onClose} className="p-1.5 rounded hover:bg-muted transition-colors">
-                <X className="w-4 h-4" />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Lightbox (tela cheia) ── */}
+      {lightbox && fotos.length > 0 && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center"
+          onClick={() => setLightbox(false)}>
+          {/* Fechar */}
+          <button
+            onClick={() => setLightbox(false)}
+            className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors z-10">
+            <X className="w-5 h-5 text-white" />
+          </button>
+
+          {/* Contador */}
+          <span className="absolute top-4 left-1/2 -translate-x-1/2 text-white/70 text-sm">
+            {idxSafe + 1} / {fotos.length}
+          </span>
+
+          {/* Imagem */}
+          <img
+            src={fotos[idxSafe].url_imagem}
+            alt={ativo.nome}
+            className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
+            onClick={e => e.stopPropagation()}
+          />
+
+          {/* Prev/Next no lightbox */}
+          {fotos.length > 1 && (
+            <>
+              <button
+                onClick={e => { e.stopPropagation(); setFotoIdx(i => (i - 1 + fotos.length) % fotos.length); }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors">
+                <ChevronLeft className="w-5 h-5 text-white" />
               </button>
-            </div>
+              <button
+                onClick={e => { e.stopPropagation(); setFotoIdx(i => (i + 1) % fotos.length); }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors">
+                <ChevronRight className="w-5 h-5 text-white" />
+              </button>
+            </>
+          )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-muted/50 rounded-lg p-3">
-                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span className="text-[11px] font-medium">Localização</span>
-                </div>
-                <p className="text-sm font-semibold">{ativo.destino}</p>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-3">
-                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                  <Box className="w-3.5 h-3.5" />
-                  <span className="text-[11px] font-medium">Quantidade</span>
-                </div>
-                <p className="text-sm font-semibold">{ativo.quantidade} un.</p>
-              </div>
+          {/* Thumbnails no lightbox */}
+          {fotos.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2"
+              onClick={e => e.stopPropagation()}>
+              {fotos.map((foto, i) => (
+                <button key={foto.id} onClick={() => setFotoIdx(i)}
+                  className="w-12 h-12 rounded overflow-hidden transition-all"
+                  style={{ opacity: i === idxSafe ? 1 : 0.5, outline: i === idxSafe ? "2px solid white" : "none" }}>
+                  <img src={foto.url_imagem} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
             </div>
+          )}
 
-            {ativo.descricao && (
-              <div>
-                <div className="flex items-center gap-1.5 text-muted-foreground mb-2">
-                  <Info className="w-3.5 h-3.5" />
-                  <span className="text-[11px] font-medium">Descrição</span>
-                </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">{ativo.descricao}</p>
-              </div>
-            )}
-
-            <div className="mt-auto pt-4 border-t border-border text-[11px] text-muted-foreground space-y-1">
-              <div className="flex justify-between">
-                <span>Registrado por</span><span>{ativo.usuario_nome ?? "Sistema"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Data</span>
-                <span>{format(new Date(ativo.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
-              </div>
-            </div>
-          </div>
+          {/* Nome do arquivo */}
+          <p className="absolute bottom-20 left-1/2 -translate-x-1/2 text-white/50 text-[11px]">
+            {fotos[idxSafe]?.nome_arquivo}
+          </p>
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+    </>
   );
 }
 
@@ -715,6 +900,13 @@ export default function Almoxarifado() {
                       <Badge variant="secondary" className="absolute top-2 left-2 font-mono text-[10px]">
                         {ativo.codigo_remo}
                       </Badge>
+                      {/* Contador de fotos */}
+                      {(ativo.ativos_fotos?.length ?? 0) > 0 && (
+                        <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                          <Camera className="w-2.5 h-2.5" />
+                          {ativo.ativos_fotos?.length}
+                        </div>
+                      )}
                     </div>
                     <div className="p-4 flex-1 flex flex-col gap-3">
                       <div>
@@ -813,7 +1005,28 @@ export default function Almoxarifado() {
       </Tabs>
 
       {/* Modais */}
-      {ativoDetalhes && <ModalDetalhes ativo={ativoDetalhes} onClose={() => setAtivoDetalhes(null)} />}
+      {ativoDetalhes && (
+        <ModalDetalhes
+          ativo={ativoDetalhes}
+          onClose={() => setAtivoDetalhes(null)}
+          canEdit={canAlmoxarifado}
+          onFotoDeleted={(fotoId) => {
+            // Remover a foto do state local sem precisar refetch
+            setAtivoDetalhes(prev => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                ativos_fotos: (prev.ativos_fotos ?? []).filter(f => f.id !== fotoId),
+              };
+            });
+            // Atualizar também na lista de ativos
+            setAtivos(prev => prev.map(a => {
+              if (a.id !== ativoDetalhes?.id) return a;
+              return { ...a, ativos_fotos: (a.ativos_fotos ?? []).filter(f => f.id !== fotoId) };
+            }));
+          }}
+        />
+      )}
 
       {ativoTransferir && (
         <ModalTransferencia

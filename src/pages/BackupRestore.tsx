@@ -392,7 +392,7 @@ export default function BackupRestore() {
     { icon: Users,     label: "Perfis",       key: "total_profiles",            color: "hsl(207, 89%, 48%)",  scope: "system"   as const },
     { icon: Shield,    label: "Roles",         key: "total_user_roles",          color: "hsl(280, 60%, 50%)",  scope: "system"   as const },
     { icon: Target,    label: "Metas",         key: "total_metas",               color: "hsl(152, 60%, 38%)",  scope: "database" as const },
-    { icon: ListChecks,label: "Ações",         key: "total_acoes_meta",          color: "hsl(45, 100%, 51%)",  scope: "database" as const },
+    { icon: ListChecks,label: "Ações",         key: "total_acoes_meta",          color: "hsl(42, 65%, 56%)",  scope: "database" as const },
     { icon: BarChart3, label: "Check-ins",     key: "total_meta_checkins",       color: "hsl(340, 70%, 50%)",  scope: "database" as const },
     { icon: FileText,  label: "Relatórios",    key: "total_relatorios_gerados",  color: "hsl(20, 80%, 50%)",   scope: "database" as const },
     { icon: HardDrive, label: "Exec. Obras",   key: "total_execucao_obras",      color: "hsl(174, 62%, 47%)",  scope: "database" as const },
@@ -444,7 +444,7 @@ export default function BackupRestore() {
           {[
             { label: "SQL (Supabase)", icon: Database, color: "hsl(207, 89%, 48%)" },
             { label: "JSON (Sistema)", icon: FileJson, color: "hsl(152, 60%, 38%)" },
-            { label: "CSV (Excel)", icon: FileArchive, color: "hsl(45, 100%, 51%)" },
+            { label: "CSV (Excel)", icon: FileArchive, color: "hsl(42, 65%, 56%)" },
           ].map((f, i) => (
             <div key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-medium"
               style={{ background: "hsl(var(--pbi-dark))", border: "1px solid hsl(var(--pbi-border))" }}>
@@ -549,7 +549,7 @@ export default function BackupRestore() {
                       title={isActive ? "Pausar" : "Ativar"}
                     >
                       {isActive
-                        ? <Pause className="w-3.5 h-3.5" style={{ color: "hsl(45, 100%, 51%)" }} />
+                        ? <Pause className="w-3.5 h-3.5" style={{ color: "hsl(42, 65%, 56%)" }} />
                         : <Play className="w-3.5 h-3.5" style={{ color: "hsl(152, 60%, 38%)" }} />
                       }
                     </button>
@@ -601,7 +601,7 @@ export default function BackupRestore() {
         {/* Instrução de configuração */}
         <div className="mt-4 pt-3 space-y-2" style={{ borderTop: "1px solid hsl(var(--pbi-border))" }}>
           <div className="flex items-start gap-2">
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "hsl(45, 100%, 51%)" }} />
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "hsl(42, 65%, 56%)" }} />
             <p className="text-[10px]" style={{ color: "hsl(var(--pbi-text-secondary))" }}>
               <strong style={{ color: "hsl(var(--pbi-text-primary))" }}>Botão "Executar agora"</strong> funciona mesmo sem Edge Function — usa modo local e registra no histórico.
               Para salvar arquivos no Storage e receber notificações automáticas, faça o deploy da função{" "}
@@ -621,11 +621,11 @@ export default function BackupRestore() {
       </div>
 
       {/* ─── BACKUPS ARMAZENADOS ─── */}
-      <div className="pbi-tile" style={{ borderTop: "3px solid hsl(45, 100%, 51%)" }}>
+      <div className="pbi-tile" style={{ borderTop: "3px solid hsl(42, 65%, 56%)" }}>
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-              style={{ background: "hsl(45, 100%, 51%, 0.15)", color: "hsl(45, 100%, 51%)" }}>
+              style={{ background: "hsl(45, 100%, 51%, 0.15)", color: "hsl(42, 65%, 56%)" }}>
               <FileArchive className="w-5 h-5" />
             </div>
             <div>
@@ -677,7 +677,7 @@ export default function BackupRestore() {
                 <div key={file.name}
                   className="flex items-center gap-3 p-3 rounded-lg"
                   style={{ background: "hsl(var(--pbi-dark))", border: "1px solid hsl(var(--pbi-border))" }}>
-                  <FileJson className="w-4 h-4 shrink-0" style={{ color: "hsl(45, 100%, 51%)" }} />
+                  <FileJson className="w-4 h-4 shrink-0" style={{ color: "hsl(42, 65%, 56%)" }} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] font-medium text-foreground truncate">{file.name}</p>
                     <p className="text-[10px]" style={{ color: "hsl(var(--pbi-text-secondary))" }}>
@@ -792,7 +792,7 @@ export default function BackupRestore() {
         {/* Warning */}
         <div className="flex items-center gap-2 mt-3 p-2.5 rounded-md"
           style={{ background: "hsl(45, 100%, 51%, 0.08)", border: "1px solid hsl(45, 100%, 51%, 0.2)" }}>
-          <AlertTriangle className="w-4 h-4 shrink-0" style={{ color: "hsl(45, 100%, 51%)" }} />
+          <AlertTriangle className="w-4 h-4 shrink-0" style={{ color: "hsl(42, 65%, 56%)" }} />
           <span className="text-[10px]" style={{ color: "hsl(var(--pbi-text-secondary))" }}>
             Registros existentes nas tabelas selecionadas serão sobrescritos. Exporte um backup antes de restaurar.
           </span>

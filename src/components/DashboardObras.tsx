@@ -60,7 +60,7 @@ export default function DashboardObras() {
 
   const statusMap = empreendimentos.reduce((acc, e) => { acc[e.status] = (acc[e.status] || 0) + 1; return acc; }, {} as Record<string, number>);
   const pieData = Object.entries(statusMap).map(([name, value]) => ({ name, value }));
-  const COLORS = ["hsl(207, 89%, 48%)", "hsl(45, 100%, 51%)", "hsl(152, 60%, 38%)", "hsl(0, 72%, 51%)"];
+  const COLORS = ["hsl(207, 89%, 48%)", "hsl(42, 65%, 56%)", "hsl(152, 60%, 38%)", "hsl(0, 72%, 51%)"];
 
   const barData = empreendimentos.slice(0, 6).map(e => ({
     nome: e.nome.length > 12 ? e.nome.slice(0, 11) + "…" : e.nome,

@@ -26,7 +26,7 @@ type Material = {
 
 const statusColors: Record<string, { color: string; bg: string }> = {
   "em andamento": { color: "hsl(207, 89%, 48%)", bg: "hsl(207, 89%, 48%, 0.15)" },
-  planejamento: { color: "hsl(45, 100%, 51%)", bg: "hsl(45, 100%, 51%, 0.15)" },
+  planejamento: { color: "hsl(42, 65%, 56%)", bg: "hsl(45, 100%, 51%, 0.15)" },
   "concluído": { color: "hsl(152, 60%, 38%)", bg: "hsl(152, 60%, 38%, 0.15)" },
   ativo: { color: "hsl(207, 89%, 48%)", bg: "hsl(207, 89%, 48%, 0.15)" },
 };
@@ -392,7 +392,7 @@ export default function Pedidos() {
                     {matFiltrados.map((item) => {
                       const isOk = item.quantidade > item.minimo * 1.5;
                       const isLow = item.quantidade > item.minimo;
-                      const st = isOk ? { label: "OK", color: "hsl(152, 60%, 38%)", bg: "hsl(152, 60%, 38%, 0.15)" } : isLow ? { label: "Baixo", color: "hsl(45, 100%, 51%)", bg: "hsl(45, 100%, 51%, 0.15)" } : { label: "Crítico", color: "hsl(0, 72%, 51%)", bg: "hsl(0, 72%, 51%, 0.15)" };
+                      const st = isOk ? { label: "OK", color: "hsl(152, 60%, 38%)", bg: "hsl(152, 60%, 38%, 0.15)" } : isLow ? { label: "Baixo", color: "hsl(42, 65%, 56%)", bg: "hsl(45, 100%, 51%, 0.15)" } : { label: "Crítico", color: "hsl(0, 72%, 51%)", bg: "hsl(0, 72%, 51%, 0.15)" };
                       return (
                         <tr key={item.id} className="pbi-row-hover transition-colors border-b border-border/50">
                           <td className="py-1.5 px-2 font-medium" style={{ color: "hsl(207, 89%, 48%)" }}>{item.codigo}</td>

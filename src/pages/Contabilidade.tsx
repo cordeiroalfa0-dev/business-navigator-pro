@@ -27,7 +27,7 @@ type ContaReceber = {
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
   pago: { label: "Pago", color: "hsl(152, 60%, 38%)", bg: "hsl(152, 60%, 38%, 0.15)" },
-  pendente: { label: "Pendente", color: "hsl(45, 100%, 51%)", bg: "hsl(45, 100%, 51%, 0.15)" },
+  pendente: { label: "Pendente", color: "hsl(42, 65%, 56%)", bg: "hsl(45, 100%, 51%, 0.15)" },
   atrasado: { label: "Atrasado", color: "hsl(0, 72%, 51%)", bg: "hsl(0, 72%, 51%, 0.15)" },
   cancelado: { label: "Cancelado", color: "hsl(220, 15%, 55%)", bg: "hsl(220, 15%, 55%, 0.15)" },
 };
@@ -191,7 +191,7 @@ export default function Contabilidade() {
   const gridColor = theme === "dark" ? "hsl(0, 0%, 25%)" : "hsl(0, 0%, 85%)";
   const axisColor = theme === "dark" ? "hsl(0, 0%, 55%)" : "hsl(0, 0%, 50%)";
   const tooltipStyle = {
-    background: theme === "dark" ? "hsl(0, 0%, 18%)" : "#fff",
+    background: theme === "dark" ? "hsl(215, 42%, 14%)" : "#fff",
     border: `1px solid ${theme === "dark" ? "hsl(0, 0%, 30%)" : "hsl(0, 0%, 85%)"}`,
     borderRadius: "6px", fontSize: "11px",
     color: theme === "dark" ? "#e8e8e8" : "#222",

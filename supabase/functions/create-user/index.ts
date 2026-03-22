@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
     if (roleRow?.role !== "admin") throw new Error("Not authorized");
     const { email, password, full_name, role } = await req.json();
     if (!email || !password || !full_name || !role) throw new Error("Missing required fields");
-    if (!["admin", "master", "normal"].includes(role)) throw new Error("Invalid role");
+    if (!["admin", "master", "normal", "almoxarife"].includes(role)) throw new Error("Invalid role");
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name } });
     if (createError) throw createError;
     const { error: roleAssignError } = await adminClient.from("user_roles").insert({ user_id: newUser.user.id, role });

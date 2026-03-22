@@ -26,6 +26,7 @@ const BackupRestore      = lazy(() => import("@/pages/BackupRestore"));
 const ManualUsuario      = lazy(() => import("@/pages/ManualUsuario"));
 const ManualAdmin        = lazy(() => import("@/pages/ManualAdmin"));
 const Desenvolvimento    = lazy(() => import("@/pages/Desenvolvimento"));
+const DiarioObra         = lazy(() => import("@/pages/DiarioObra"));
 const Almoxarifado       = lazy(() => import("@/pages/Almoxarifado"));
 const GerenciarModulos   = lazy(() => import("@/pages/GerenciarModulos"));
 const AdminAudit         = lazy(() => import("@/pages/AdminAudit"));
@@ -80,6 +81,7 @@ const ProtectedApp = () => (
           <Route path="/manual"         element={<ManualUsuario />} />
           <Route path="/manual-admin"   element={<ManualAdmin />} />
           <Route path="/desenvolvimento" element={<Desenvolvimento />} />
+          <Route path="/diario-obra"     element={<DiarioObra />} />
           <Route path="/almoxarifado"    element={<Almoxarifado />} />
           <Route path="/modulos"         element={<GerenciarModulos />} />
           <Route path="/auditoria"       element={<AdminAudit />} />

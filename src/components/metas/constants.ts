@@ -68,7 +68,7 @@ export const frequenciasCheckin = ["diário", "semanal", "quinzenal", "mensal"];
 export const etapasPreset = ["Planejamento", "Fundação", "Estrutura", "Alvenaria", "Elétrica", "Hidráulica", "Acabamento", "Entrega", "Em andamento", "Concluído"];
 
 export const coresMeta = [
-  "hsl(207, 89%, 48%)", "hsl(45, 100%, 51%)", "hsl(152, 60%, 38%)",
+  "hsl(207, 89%, 48%)", "hsl(42, 65%, 56%)", "hsl(152, 60%, 38%)",
   "hsl(174, 62%, 47%)", "hsl(0, 72%, 51%)", "hsl(28, 87%, 55%)",
   "hsl(270, 60%, 55%)", "hsl(330, 70%, 50%)",
 ];
@@ -89,13 +89,13 @@ export const unidadesPreset = [
 
 export const prioridadeConfig: Record<string, ConfigItem> = {
   alta: { label: "Alta", color: "hsl(0, 72%, 51%)", bg: "hsl(0, 72%, 51%, 0.12)", icon: Flame },
-  media: { label: "Média", color: "hsl(45, 100%, 51%)", bg: "hsl(45, 100%, 51%, 0.12)", icon: AlertTriangle },
+  media: { label: "Média", color: "hsl(42, 65%, 56%)", bg: "hsl(45, 100%, 51%, 0.12)", icon: AlertTriangle },
   baixa: { label: "Baixa", color: "hsl(207, 89%, 48%)", bg: "hsl(207, 89%, 48%, 0.12)", icon: Clock },
 };
 
 export const statusConfig: Record<string, ConfigItem> = {
   no_prazo: { label: "No Prazo", color: "hsl(152, 60%, 38%)", bg: "hsl(152, 60%, 38%, 0.12)", icon: CheckCircle2 },
-  atencao: { label: "Atenção", color: "hsl(45, 100%, 51%)", bg: "hsl(45, 100%, 51%, 0.12)", icon: AlertTriangle },
+  atencao: { label: "Atenção", color: "hsl(42, 65%, 56%)", bg: "hsl(45, 100%, 51%, 0.12)", icon: AlertTriangle },
   em_risco: { label: "Em Risco", color: "hsl(0, 72%, 51%)", bg: "hsl(0, 72%, 51%, 0.12)", icon: XCircle },
   atingida: { label: "Atingida", color: "hsl(207, 89%, 48%)", bg: "hsl(207, 89%, 48%, 0.12)", icon: Trophy },
 };

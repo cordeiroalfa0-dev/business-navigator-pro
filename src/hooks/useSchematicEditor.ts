@@ -78,7 +78,6 @@ export function useSchematicEditor() {
 
   // ✅ CORRIGIDO: Usar createComponent para criar com terminais corretos
   const addComponent = useCallback((type: ComponentType, position: Point) => {
-    console.log('🎯 addComponent chamado:', { type, position });
     
     pushUndo();
     const snapped = {
@@ -86,18 +85,13 @@ export function useSchematicEditor() {
       y: snapToGrid(position.y, 20),
     };
     
-    console.log('📍 Posição ajustada:', snapped);
     
     const label = componentLabelsMap[type] || type.replace(/_/g, ' ').toUpperCase();
     
-    console.log('🏷️ Label:', label);
     
     // ✅ NOVO: Usar createComponent do helper
     const comp = createComponent(type, snapped, label);
     
-    console.log('✅ Componente criado:', comp);
-    console.log('   - ID:', comp.id);
-    console.log('   - Terminais:', comp.terminals.length);
     
     setState(prev => {
       const newState = {
@@ -105,7 +99,6 @@ export function useSchematicEditor() {
         components: [...prev.components, comp],
         selectedIds: [comp.id],
       };
-      console.log('📊 Novo estado:', {
         totalComponentes: newState.components.length,
         componentes: newState.components.map(c => c.label)
       });

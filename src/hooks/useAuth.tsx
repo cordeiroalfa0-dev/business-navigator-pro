@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Profile = Tables<"profiles">;
-type AppRole = "admin" | "master" | "normal";
+type AppRole = "admin" | "master" | "normal" | "almoxarife";
 
 type AuthContextValue = {
   user: User | null;
@@ -141,8 +141,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const canAlmoxarifado = useMemo(() => {
     if (isAdmin || canEditMetas) return true;
+    if (userRole === "almoxarife") return true;
     return enabledModules["almoxarifado"] === true;
-  }, [isAdmin, canEditMetas, enabledModules]);
+  }, [isAdmin, canEditMetas, userRole, enabledModules]);
 
   const value = useMemo(
     () => ({

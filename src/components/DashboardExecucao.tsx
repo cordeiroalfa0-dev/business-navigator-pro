@@ -36,9 +36,18 @@ export default function DashboardExecucao() {
   const axisColor = isDark ? "hsl(215 20% 55%)" : "hsl(215 16% 47%)";
   const tooltipStyle = { backgroundColor: isDark ? "hsl(222 47% 11%)" : "#fff", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 };
 
+  const [metasCount, setMetasCount] = useState<Record<string,number>>({});
+
   const fetch = useCallback(async () => {
     const { data } = await supabase.from("execucao_obras" as any).select("*").order("created_at", { ascending: false });
     setObras((data ?? []) as Obra[]);
+    const ids = (data ?? []).map((o:any) => o.id).filter(Boolean);
+    if (ids.length > 0) {
+      const { data: mdata } = await supabase.from("metas").select("obra_id").in("obra_id", ids);
+      const counts: Record<string,number> = {};
+      for (const m of mdata ?? []) { if (m.obra_id) counts[m.obra_id] = (counts[m.obra_id]||0)+1; }
+      setMetasCount(counts);
+    }
     setLoading(false);
   }, []);
 

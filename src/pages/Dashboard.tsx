@@ -107,7 +107,7 @@ export default function Dashboard() {
         const statusMap: Record<string, number> = {};
         empData.forEach((e: any) => { statusMap[e.status] = (statusMap[e.status] || 0) + 1; });
         const statusColors: Record<string, string> = {
-          "em andamento": "hsl(207, 89%, 48%)", planejamento: "hsl(45, 100%, 51%)",
+          "em andamento": "hsl(207, 89%, 48%)", planejamento: "hsl(42, 65%, 56%)",
           "concluído": "hsl(152, 60%, 38%)",
         };
         setObrasPorStatus(Object.entries(statusMap).map(([name, value]) => ({
@@ -197,18 +197,18 @@ export default function Dashboard() {
 
   const kpis = [
     { title: "Faturamento", value: faturamentoAno > 0 ? `R$ ${(faturamentoAno / 1000).toFixed(0)}k` : `R$ ${(faturamentoTotal / 1000).toFixed(0)}k`, icon: DollarSign, color: "hsl(207, 89%, 48%)" },
-    { title: "Obras Ativas", value: String(obrasAtivas), icon: Building2, color: "hsl(45, 100%, 51%)" },
+    { title: "Obras Ativas", value: String(obrasAtivas), icon: Building2, color: "hsl(42, 65%, 56%)" },
     { title: "Unidades Vendidas", value: String(unidadesVendidas), icon: HardHat, color: "hsl(174, 62%, 47%)" },
     { title: "Contratos Ativos", value: String(contratosAtivos), icon: Users, color: "hsl(28, 87%, 55%)" },
   ];
 
   const gridColor = theme === "dark" ? "hsl(0, 0%, 25%)" : "hsl(0, 0%, 88%)";
   const axisColor = theme === "dark" ? "hsl(0, 0%, 45%)" : "hsl(0, 0%, 60%)";
-  const tooltipBg = theme === "dark" ? "hsl(0, 0%, 18%)" : "#fff";
+  const tooltipBg = theme === "dark" ? "hsl(215, 42%, 14%)" : "#fff";
   const tooltipBorder = theme === "dark" ? "hsl(0, 0%, 30%)" : "hsl(0, 0%, 88%)";
   const tooltipStyle = { borderRadius: "4px", border: `1px solid ${tooltipBorder}`, fontSize: 12, backgroundColor: tooltipBg, color: theme === "dark" ? "#e8e8e8" : "#222" };
 
-  const metaBarColor = (pct: number) => pct >= 80 ? "hsl(152, 60%, 38%)" : pct >= 50 ? "hsl(207, 89%, 48%)" : pct >= 30 ? "hsl(45, 100%, 51%)" : "hsl(0, 72%, 51%)";
+  const metaBarColor = (pct: number) => pct >= 80 ? "hsl(152, 60%, 38%)" : pct >= 50 ? "hsl(207, 89%, 48%)" : pct >= 30 ? "hsl(42, 65%, 56%)" : "hsl(0, 72%, 51%)";
 
   const dashboardCompleta = (
     <div className="space-y-3">
@@ -263,7 +263,7 @@ export default function Dashboard() {
             { label: "Total de Atividades", value: metaStats.total, color: "hsl(207, 89%, 48%)" },
             { label: "Atingidas", value: metaStats.atingidas, color: "hsl(152, 60%, 38%)" },
             { label: "Em Risco", value: metaStats.emRisco, color: "hsl(0, 72%, 51%)" },
-            { label: "No Prazo", value: metaStats.total - metaStats.atingidas - metaStats.emRisco, color: "hsl(45, 100%, 51%)" },
+            { label: "No Prazo", value: metaStats.total - metaStats.atingidas - metaStats.emRisco, color: "hsl(42, 65%, 56%)" },
           ].map(k => (
             <div key={k.label} className="text-center">
               <p className="text-2xl font-bold" style={{ color: k.color }}>{k.value}</p>
@@ -377,7 +377,7 @@ export default function Dashboard() {
                 {[
                   { label: "Atingidas", value: statsObra.atingidas, color: "hsl(152, 60%, 38%)" },
                   { label: "Em Risco", value: statsObra.emRisco, color: "hsl(0, 72%, 51%)" },
-                  { label: "No Prazo", value: statsObra.total - statsObra.atingidas - statsObra.emRisco, color: "hsl(45, 100%, 51%)" },
+                  { label: "No Prazo", value: statsObra.total - statsObra.atingidas - statsObra.emRisco, color: "hsl(42, 65%, 56%)" },
                 ].map(k => (
                   <div key={k.label} className="flex items-center gap-3">
                     <span className="text-[11px] text-muted-foreground flex-1">{k.label}</span>
@@ -427,7 +427,7 @@ export default function Dashboard() {
                 {[
                   { label: "Atingidas", value: statsEstrategicas.atingidas, color: "hsl(152, 60%, 38%)" },
                   { label: "Em Risco", value: statsEstrategicas.emRisco, color: "hsl(0, 72%, 51%)" },
-                  { label: "No Prazo", value: statsEstrategicas.total - statsEstrategicas.atingidas - statsEstrategicas.emRisco, color: "hsl(45, 100%, 51%)" },
+                  { label: "No Prazo", value: statsEstrategicas.total - statsEstrategicas.atingidas - statsEstrategicas.emRisco, color: "hsl(42, 65%, 56%)" },
                 ].map(k => (
                   <div key={k.label} className="flex items-center gap-3">
                     <span className="text-[11px] text-muted-foreground flex-1">{k.label}</span>
@@ -463,7 +463,7 @@ export default function Dashboard() {
             {[
               { label: "Engenharia", color: "hsl(207, 89%, 48%)" },
               { label: "Projetos", color: "hsl(174, 62%, 47%)" },
-              { label: "Orçamentos", color: "hsl(45, 100%, 51%)" },
+              { label: "Orçamentos", color: "hsl(42, 65%, 56%)" },
               { label: "Contratos", color: "hsl(28, 87%, 55%)" },
               { label: "Quantitativos", color: "hsl(271, 60%, 55%)" },
               { label: "Materiais", color: "hsl(152, 60%, 38%)" },
@@ -473,7 +473,7 @@ export default function Dashboard() {
               const total = dado?.total ?? 0;
               const atingidas = dado?.atingidas ?? 0;
               const status = pct >= 75 ? "Ótimo" : pct >= 50 ? "Regular" : total === 0 ? "Sem metas" : "Atenção";
-              const statusColor = pct >= 75 ? "hsl(152, 60%, 38%)" : pct >= 50 ? "hsl(45, 100%, 51%)" : total === 0 ? "hsl(0, 0%, 55%)" : "hsl(0, 72%, 51%)";
+              const statusColor = pct >= 75 ? "hsl(152, 60%, 38%)" : pct >= 50 ? "hsl(42, 65%, 56%)" : total === 0 ? "hsl(0, 0%, 55%)" : "hsl(0, 72%, 51%)";
               return (
                 <div key={cat.label} className="rounded p-3 text-center" style={{ background: `${cat.color}12`, border: `1px solid ${cat.color}30` }}>
                   <p className="text-[10px] font-semibold text-foreground mb-1">{cat.label}</p>

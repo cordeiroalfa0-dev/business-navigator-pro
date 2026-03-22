@@ -34,7 +34,7 @@ const FloatingParticle = ({ delay, size, x, y, duration }: { delay: number; size
       height: size,
       left: x,
       top: y,
-      background: `radial-gradient(circle, hsl(45, 100%, 51%, 0.15), transparent)`,
+      background: `radial-gradient(circle, hsl(42, 65%, 56%, 0.15), transparent)`,
     }}
     animate={{
       y: [0, -30, 0],
@@ -122,28 +122,28 @@ export default function Auth() {
 
   if (checkingSetup) {
     return (
-      <div className="flex items-center justify-center" style={{ minHeight: "100dvh", background: "hsl(222, 30%, 8%)" }}>
+      <div className="flex items-center justify-center" style={{ minHeight: "100dvh", background: "hsl(215, 55%, 6%)" }}>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
           className="w-12 h-12 rounded-full border-4 border-white/5"
-          style={{ borderTopColor: "hsl(45, 100%, 51%)" }}
+          style={{ borderTopColor: "hsl(42, 65%, 56%)" }}
         />
       </div>
     );
   }
 
   const inputClass = "h-11 text-sm border-none pl-11 placeholder:text-white/25 focus-visible:ring-1 focus-visible:ring-[hsl(45,100%,51%,0.5)]";
-  const inputStyle = { background: "hsl(222, 30%, 16%)", color: "white" };
+  const inputStyle = { background: "hsl(215, 45%, 12%)", color: "white" };
 
   return (
-    <div className="relative overflow-hidden" style={{ minHeight: "100dvh", background: "hsl(222, 30%, 8%)" }}>
+    <div className="relative overflow-hidden" style={{ minHeight: "100dvh", background: "hsl(215, 55%, 6%)" }}>
       {/* Animated background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
           className="absolute -top-1/2 -right-1/2 w-full h-full opacity-30"
           style={{
-            background: "radial-gradient(ellipse at center, hsl(45, 100%, 51%, 0.08) 0%, transparent 70%)",
+            background: "radial-gradient(ellipse at center, hsl(42, 65%, 56%, 0.10) 0%, transparent 70%)",
           }}
         />
         <div
@@ -177,7 +177,7 @@ export default function Auth() {
             <h2 className="text-4xl xl:text-5xl font-bold text-white leading-tight mb-4">
               Gestão completa
               <br />
-              <span style={{ color: "hsl(45, 100%, 51%)" }}>de ponta a ponta.</span>
+              <span style={{ color: "hsl(42, 65%, 56%)" }}>de ponta a ponta.</span>
             </h2>
             <p className="text-base mb-12" style={{ color: "hsl(220, 15%, 55%)" }}>
               Metas, obras, financeiro, contratos e equipe em um único painel.
@@ -196,15 +196,15 @@ export default function Auth() {
                     transition={{ duration: 0.5, delay: 0.3 + i * 0.1 }}
                     className="rounded-xl p-4 group hover:scale-[1.02] transition-transform duration-300"
                     style={{
-                      background: "hsl(222, 30%, 12%)",
-                      border: "1px solid hsl(220, 20%, 18%)",
+                      background: "hsl(215, 48%, 10%)",
+                      border: "1px solid hsl(215, 35%, 18%)",
                     }}
                   >
                     <div
                       className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
-                      style={{ background: "hsl(45, 100%, 51%, 0.1)" }}
+                      style={{ background: "hsl(42, 65%, 56%, 0.12)" }}
                     >
-                      <Icon className="w-4.5 h-4.5" style={{ color: "hsl(45, 100%, 51%)" }} />
+                      <Icon className="w-4.5 h-4.5" style={{ color: "hsl(42, 65%, 56%)" }} />
                     </div>
                     <p className="text-sm font-semibold text-white mb-1">{feat.title}</p>
                     <p className="text-xs leading-relaxed" style={{ color: "hsl(220, 15%, 50%)" }}>{feat.desc}</p>
@@ -219,13 +219,13 @@ export default function Auth() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.8 }}
               className="mt-6 rounded-xl p-4"
-              style={{ background: "hsl(222, 30%, 12%)", border: "1px solid hsl(220, 20%, 18%)" }}
+              style={{ background: "hsl(215, 48%, 10%)", border: "1px solid hsl(215, 35%, 18%)" }}
             >
               <p className="text-xs font-semibold mb-3" style={{ color: "hsl(220, 15%, 50%)" }}>NÍVEIS DE ACESSO</p>
               <div className="space-y-2">
                 {[
                   { role: "Admin", color: "hsl(0, 72%, 51%)", desc: "Acesso total — usuários, backup, todos os módulos" },
-                  { role: "Master", color: "hsl(45, 100%, 51%)", desc: "Metas, relatórios, obras, financeiro e cadastro" },
+                  { role: "Master", color: "hsl(42, 65%, 56%)", desc: "Metas, relatórios, obras, financeiro e cadastro" },
                   { role: "Normal", color: "hsl(207, 89%, 48%)", desc: "Meu Espaço: check-ins, contribuições e anexos em metas. Visualização de todos os módulos" },
                 ].map(({ role, color, desc }) => (
                   <div key={role} className="flex items-start gap-2.5">
@@ -257,9 +257,9 @@ export default function Auth() {
             <div
               className="rounded-2xl p-8 backdrop-blur-sm"
               style={{
-                background: "linear-gradient(145deg, hsl(222, 30%, 14%), hsl(222, 30%, 11%))",
+                background: "linear-gradient(145deg, hsl(215, 46%, 11%), hsl(215, 52%, 8%))",
                 border: "1px solid hsl(220, 20%, 20%)",
-                boxShadow: "0 25px 60px -12px hsl(222, 30%, 5%, 0.8), 0 0 0 1px hsl(220, 20%, 18%)",
+                boxShadow: "0 25px 60px -12px hsl(222, 30%, 5%, 0.8), 0 0 0 1px hsl(215, 35%, 18%)",
               }}
             >
               {/* San Remo title */}
@@ -285,8 +285,8 @@ export default function Auth() {
                   </p>
 
                   {!hasAdminAccount && mode === "setup" && (
-                    <Alert className="mb-5 border-none rounded-xl" style={{ background: "hsl(45, 100%, 51%, 0.08)" }}>
-                      <Sparkles className="h-4 w-4" style={{ color: "hsl(45, 100%, 51%)" }} />
+                    <Alert className="mb-5 border-none rounded-xl" style={{ background: "hsl(42, 65%, 56%, 0.10)" }}>
+                      <Sparkles className="h-4 w-4" style={{ color: "hsl(42, 65%, 56%)" }} />
                       <AlertTitle className="text-sm text-white">Primeiro acesso</AlertTitle>
                       <AlertDescription className="text-xs" style={{ color: "hsl(220, 15%, 55%)" }}>
                         Configure seu administrador para começar.
@@ -345,8 +345,8 @@ export default function Auth() {
                           className="w-full h-11 text-sm font-bold gap-2 rounded-xl transition-all duration-300"
                           disabled={submitting}
                           style={{
-                            background: "linear-gradient(135deg, hsl(45, 100%, 51%), hsl(38, 92%, 42%))",
-                            color: "hsl(222, 30%, 8%)",
+                            background: "linear-gradient(135deg, hsl(42, 65%, 56%), hsl(38, 92%, 42%))",
+                            color: "hsl(215, 55%, 6%)",
                             boxShadow: "0 4px 20px -4px hsl(45, 100%, 51%, 0.4)",
                           }}
                         >
@@ -396,7 +396,7 @@ export default function Auth() {
 
                       <motion.div whileTap={{ scale: 0.98 }}>
                         <Button type="submit" className="w-full h-11 text-sm font-bold gap-2 rounded-xl" disabled={submitting}
-                          style={{ background: "linear-gradient(135deg, hsl(45, 100%, 51%), hsl(38, 92%, 42%))", color: "hsl(222, 30%, 8%)", boxShadow: "0 4px 20px -4px hsl(45, 100%, 51%, 0.4)" }}>
+                          style={{ background: "linear-gradient(135deg, hsl(42, 65%, 56%), hsl(38, 92%, 42%))", color: "hsl(215, 55%, 6%)", boxShadow: "0 4px 20px -4px hsl(45, 100%, 51%, 0.4)" }}>
                           {submitting ? "Criando..." : "Criar primeiro admin"} <ShieldCheck className="w-4 h-4" />
                         </Button>
                       </motion.div>
@@ -416,7 +416,7 @@ export default function Auth() {
                       </div>
                       <motion.div whileTap={{ scale: 0.98 }}>
                         <Button type="submit" className="w-full h-11 text-sm font-bold gap-2 rounded-xl" disabled={submitting}
-                          style={{ background: "linear-gradient(135deg, hsl(45, 100%, 51%), hsl(38, 92%, 42%))", color: "hsl(222, 30%, 8%)", boxShadow: "0 4px 20px -4px hsl(45, 100%, 51%, 0.4)" }}>
+                          style={{ background: "linear-gradient(135deg, hsl(42, 65%, 56%), hsl(38, 92%, 42%))", color: "hsl(215, 55%, 6%)", boxShadow: "0 4px 20px -4px hsl(45, 100%, 51%, 0.4)" }}>
                           {submitting ? "Enviando..." : "Enviar link de recuperação"} <KeyRound className="w-4 h-4" />
                         </Button>
                       </motion.div>

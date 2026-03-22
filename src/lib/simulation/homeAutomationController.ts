@@ -36,7 +36,6 @@ export class HomeAutomationController extends EventEmitter {
     module.on('error', (error) => this.onModuleError(config.id, error));
     
     this.emit('module_added', { moduleId: config.id, name: config.name });
-    console.log(`✅ Módulo adicionado: ${config.name}`);
   }
 
   /**
@@ -73,7 +72,6 @@ export class HomeAutomationController extends EventEmitter {
     this.startDashboardUpdates();
     
     this.emit('system_started');
-    console.log('🏠 Sistema de Automação Residencial Iniciado!');
   }
 
   /**
@@ -101,7 +99,6 @@ export class HomeAutomationController extends EventEmitter {
     }
     
     this.emit('system_stopped');
-    console.log('🏠 Sistema de Automação Parado');
   }
 
   /**
@@ -121,13 +118,11 @@ export class HomeAutomationController extends EventEmitter {
       throw new Error(`Scene ${sceneId} not found or disabled`);
     }
 
-    console.log(`🎬 Ativando cena: ${scene.name}`);
     
     // Verificar condições
     if (scene.conditions) {
       const conditionsMet = this.checkConditions(scene.conditions);
       if (!conditionsMet) {
-        console.log(`⚠️ Condições não atendidas para cena ${scene.name}`);
         return;
       }
     }

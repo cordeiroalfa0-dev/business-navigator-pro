@@ -30,7 +30,7 @@ export const MetaKPIs: React.FC<MetaKPIsProps> = ({ metas, checkins, totalProgre
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
       <PBITile label="Total Metas" value={metas.length} color="hsl(207, 89%, 48%)" icon={Target} />
       <PBITile label="Progresso Médio" value={`${Math.round(totalProgress)}%`} color="hsl(152, 60%, 38%)" icon={TrendingUp} />
-      <PBITile label="Atingidas" value={`${metasAtingidas}/${metas.length}`} color="hsl(45, 100%, 51%)" icon={Award} />
+      <PBITile label="Atingidas" value={`${metasAtingidas}/${metas.length}`} color="hsl(42, 65%, 56%)" icon={Award} />
       <PBITile label="Em Risco" value={metasEmRisco} color="hsl(0, 72%, 51%)" icon={AlertTriangle} />
       <PBITile label="Check-ins" value={checkins.length} color="hsl(174, 62%, 47%)" icon={MessageCircle} />
     </div>

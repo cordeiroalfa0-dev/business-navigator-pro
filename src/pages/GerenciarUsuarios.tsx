@@ -13,6 +13,7 @@ import {
   DollarSign, Building2, Info, Settings,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAudit } from "@/hooks/useAudit";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import AccessDenied from "@/components/AccessDenied";
@@ -52,10 +53,12 @@ const MODULE_DEFS: ModuleDef[] = [
 const SECAO_ORDER = ["Visão Geral", "Análise", "Dados", "Módulos"];
 
 const ROLE_CFG: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  admin:  { label: "Admin",         color: "hsl(0, 72%, 51%)",   bg: "hsl(0, 72%, 51%, 0.15)",   icon: ShieldCheck },
-  master: { label: "Master",        color: "hsl(45, 100%, 51%)", bg: "hsl(45, 100%, 51%, 0.15)", icon: Shield },
-  normal: { label: "Normal",        color: "hsl(207, 89%, 48%)", bg: "hsl(207, 89%, 48%, 0.15)", icon: User },
-  none:   { label: "Sem Permissão", color: "hsl(220, 15%, 55%)", bg: "hsl(220, 15%, 55%, 0.15)", icon: User },
+  admin:       { label: "Admin",         color: "hsl(0, 72%, 51%)",   bg: "hsl(0, 72%, 51%, 0.15)",   icon: ShieldCheck },
+  master:      { label: "Master",        color: "hsl(42, 65%, 56%)", bg: "hsl(45, 100%, 51%, 0.15)", icon: Shield },
+  normal:      { label: "Normal",        color: "hsl(207, 89%, 48%)", bg: "hsl(207, 89%, 48%, 0.15)", icon: User },
+  almoxarife:  { label: "Almoxarife",    color: "hsl(174, 62%, 47%)", bg: "hsl(174, 62%, 47%, 0.15)", icon: Warehouse },
+  engenheiro:  { label: "Engenheiro",    color: "hsl(262, 52%, 55%)", bg: "hsl(262, 52%, 55%, 0.15)", icon: HardHat },
+  none:        { label: "Sem Permissão", color: "hsl(220, 15%, 55%)", bg: "hsl(220, 15%, 55%, 0.15)", icon: User },
 };
 
 // ── Componente ─────────────────────────────────────────────────────────────
@@ -175,6 +178,7 @@ export default function GerenciarUsuarios() {
       if (res.error) throw res.error;
       if (res.data.error) throw new Error(res.data.error);
       toast({ title: "Usuário criado!", description: `${form.full_name} (${form.role})` });
+      registrarAudit({ table_name: "profiles", record_id: "novo", action: "INSERT", new_values: { full_name: form.full_name, email: form.email, role: form.role } });
       setForm({ full_name: "", email: "", password: "", role: "normal" });
       setDialogOpen(false);
       fetchUsers();
@@ -226,9 +230,11 @@ export default function GerenciarUsuarios() {
   );
 
   const counts = {
-    admin:  users.filter(u => u.role === "admin").length,
-    master: users.filter(u => u.role === "master").length,
-    normal: users.filter(u => u.role === "normal").length,
+    admin:       users.filter(u => u.role === "admin").length,
+    master:      users.filter(u => u.role === "master").length,
+    normal:      users.filter(u => u.role === "normal").length,
+    almoxarife:  users.filter(u => u.role === "almoxarife").length,
+    engenheiro:  users.filter(u => u.role === "engenheiro").length,
   };
 
   // Conta módulos ativos de um usuário para exibir no card
@@ -293,6 +299,8 @@ export default function GerenciarUsuarios() {
                       <SelectItem value="admin">Admin — acesso total</SelectItem>
                       <SelectItem value="master">Master — gerencia módulos</SelectItem>
                       <SelectItem value="normal">Normal — acesso básico</SelectItem>
+                      <SelectItem value="almoxarife">Almoxarife — só almoxarifado</SelectItem>
+                      <SelectItem value="engenheiro">Engenheiro — Diário de Obra</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -308,7 +316,7 @@ export default function GerenciarUsuarios() {
 
       {/* ── KPIs ────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-3">
-        {(["admin", "master", "normal"] as const).map(role => {
+        {(["admin", "master", "normal", "almoxarife", "engenheiro"] as string[]).map(role => {
           const cfg  = ROLE_CFG[role];
           const Icon = cfg.icon;
           return (
@@ -451,6 +459,7 @@ export default function GerenciarUsuarios() {
                     <SelectItem value="admin">Admin — acesso total</SelectItem>
                     <SelectItem value="master">Master — gerencia módulos</SelectItem>
                     <SelectItem value="normal">Normal — acesso básico</SelectItem>
+                    <SelectItem value="almoxarife">Almoxarife — só almoxarifado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
