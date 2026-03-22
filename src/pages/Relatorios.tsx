@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import {
   Loader2, Download, RefreshCw, BarChart3, Target, HardHat, DollarSign,
-  Building2, Warehouse, Trophy, FileText, Calendar, Filter,
+  Building2, Warehouse, Trophy, FileText, Calendar, Filter, BookMarked,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -408,7 +408,7 @@ function RelAlmox({data}:{data:any}){
   );
 }
 
-// ── RANKING ───────────────────────────────────────────────────────────────────
+// ── DIÁRIO DE OBRA ────────────────────────────────────────────────────────────
 function RelDiario({data}:{data:any}){
   const{diarios=[]}=data;
   const total=diarios.length;
@@ -476,6 +476,7 @@ function RelDiario({data}:{data:any}){
   );
 }
 
+// ── RANKING ───────────────────────────────────────────────────────────────────
 function RelRanking({data}:{data:any}){
   if(!data)return null;
   const ranking=data.ranking??[];
@@ -542,6 +543,7 @@ export default function Relatorios(){
   const [dadosFinanceiro,setDadosFinanceiro] = useState<any>(null);
   const [dadosObras,setDadosObras]         = useState<any>(null);
   const [dadosAlmox,setDadosAlmox]         = useState<any>(null);
+  const [dadosDiario,setDadosDiario]       = useState<any>(null);
   const [dadosRanking,setDadosRanking]     = useState<any>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -616,16 +618,17 @@ export default function Relatorios(){
     setLoading(true);
     try{
       if(modulo==="completo")
-        await Promise.all([loadMetas(),loadExecucao(),loadFinanceiro(),loadObras(),loadAlmox(),loadRanking()]);
+        await Promise.all([loadMetas(),loadExecucao(),loadFinanceiro(),loadObras(),loadAlmox(),loadDiario(),loadRanking()]);
       else if(modulo==="metas")        await loadMetas();
       else if(modulo==="execucao")     await loadExecucao();
       else if(modulo==="financeiro")   await loadFinanceiro();
       else if(modulo==="obras")        await loadObras();
       else if(modulo==="almoxarifado") await loadAlmox();
+      else if(modulo==="diario")       await loadDiario();
       else if(modulo==="ranking")      await loadRanking();
     }catch{toast({title:"Erro ao carregar dados",variant:"destructive"});}
     finally{setLoading(false);}
-  },[modulo,loadMetas,loadExecucao,loadFinanceiro,loadObras,loadAlmox,loadRanking]);
+  },[modulo,loadMetas,loadExecucao,loadFinanceiro,loadObras,loadAlmox,loadDiario,loadRanking]);
 
   useEffect(()=>{carregar();},[carregar]);
 
@@ -660,7 +663,7 @@ export default function Relatorios(){
     finally{setExporting(false);}
   };
 
-  const temDados=dadosMetas||dadosExecucao||dadosFinanceiro||dadosObras||dadosAlmox||dadosRanking;
+  const temDados=dadosMetas||dadosExecucao||dadosFinanceiro||dadosObras||dadosAlmox||dadosDiario||dadosRanking;
 
   return(
     <div className="space-y-4">
@@ -723,7 +726,7 @@ export default function Relatorios(){
       </div>
 
       {/* Seleção rápida por módulo */}
-      <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-8 gap-2">
         {MODULOS.map(m=>{
           const Icon=m.icon;const ativo=modulo===m.key;
           return(
@@ -754,7 +757,8 @@ export default function Relatorios(){
           {(modulo==="completo"||modulo==="execucao")     &&dadosExecucao   &&<RelExecucao    data={dadosExecucao}/>}
           {(modulo==="completo"||modulo==="financeiro")   &&dadosFinanceiro &&<RelFinanceiro  data={dadosFinanceiro}/>}
           {(modulo==="completo"||modulo==="obras")        &&dadosObras      &&<RelObras       data={dadosObras}/>}
-          {(modulo==="completo"||modulo==="almoxarifado") &&dadosAlmox      &&<RelAlmox      data={dadosAlmox}/>}
+          {(modulo==="completo"||modulo==="almoxarifado") &&dadosAlmox      &&<RelAlmox       data={dadosAlmox}/>}
+          {(modulo==="completo"||modulo==="diario")       &&dadosDiario     &&<RelDiario      data={dadosDiario}/>}
           {(modulo==="completo"||modulo==="ranking")      &&dadosRanking    &&<RelRanking     data={dadosRanking}/>}
 
           {!temDados&&(
