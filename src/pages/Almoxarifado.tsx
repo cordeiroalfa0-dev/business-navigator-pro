@@ -3,6 +3,7 @@ import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import {
   Package, Plus, Search, Filter, ArrowRightLeft, Eye, Trash2,
   X, Upload, ChevronLeft, ChevronRight, Loader2, History,
@@ -164,13 +165,14 @@ function ModalDetalhes({
   const [lightbox, setLightbox]     = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast } = useToast();
+  const confirm = useConfirm();
   const fotos = ativo.ativos_fotos ?? [];
 
   // Garantir que idx não ultrapasse o array após remoção
   const idxSafe = Math.min(fotoIdx, Math.max(fotos.length - 1, 0));
 
   const handleDeleteFoto = async (foto: AtivoFoto) => {
-    if (!confirm(`Excluir a foto "${foto.nome_arquivo}"?`)) return;
+    if (!(await confirm({ message: `Excluir a foto "${foto.nome_arquivo}"?`, title: "Excluir Foto", confirmLabel: "Excluir", variant: "danger" }))) return;
     setDeletingId(foto.id);
     try {
       // Remover do storage
@@ -810,7 +812,7 @@ export default function Almoxarifado() {
           </p>
         </div>
         {canAlmoxarifado && (
-          <Button onClick={() => setShowCadastrar(true)} className="gap-2 shrink-0">
+          <Button onClick={() => setShowCadastrar(true)} className="gap-2 shrink-0 bg-blue-600 hover:bg-blue-700 text-white">
             <Plus className="w-4 h-4" /> Cadastrar ativo
           </Button>
         )}
@@ -818,31 +820,40 @@ export default function Almoxarifado() {
 
       {/* KPIs — dinâmicos */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-2xl font-semibold">{totalAtivos}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Itens cadastrados</p>
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 backdrop-blur-sm p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Package className="w-4 h-4 text-blue-400" />
+            <p className="text-xs text-blue-300/80">Itens cadastrados</p>
+          </div>
+          <p className="text-2xl font-semibold text-blue-100">{totalAtivos}</p>
         </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-2xl font-semibold">{totalUnidades}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Total unidades</p>
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 backdrop-blur-sm p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Box className="w-4 h-4 text-blue-400" />
+            <p className="text-xs text-blue-300/80">Total unidades</p>
+          </div>
+          <p className="text-2xl font-semibold text-blue-100">{totalUnidades}</p>
         </div>
         {destinosKPI.map(d => (
-          <div key={d.id} className="rounded-lg border border-border bg-card p-4">
+          <div key={d.id} className="rounded-lg border border-border bg-card p-4 hover:border-blue-500/30 hover:bg-blue-500/5 transition-colors">
+            <div className="flex items-center gap-2 mb-1">
+              <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground truncate" title={d.nome}>{d.nome}</p>
+            </div>
             <p className="text-2xl font-semibold">
               {ativos.filter(a => a.destino === d.nome).reduce((s, a) => s + a.quantidade, 0)}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate" title={d.nome}>{d.nome}</p>
           </div>
         ))}
       </div>
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="inventario" className="gap-1.5">
+        <TabsList className="border border-blue-500/20 bg-blue-500/10 backdrop-blur-sm">
+          <TabsTrigger value="inventario" className="gap-1.5 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
             <Package className="w-3.5 h-3.5" /> Inventário
           </TabsTrigger>
-          <TabsTrigger value="historico" className="gap-1.5">
+          <TabsTrigger value="historico" className="gap-1.5 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
             <History className="w-3.5 h-3.5" /> Histórico de envios
           </TabsTrigger>
         </TabsList>
@@ -853,12 +864,12 @@ export default function Almoxarifado() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input placeholder="Buscar por nome, código ou categoria..."
-                value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+                value={search} onChange={e => setSearch(e.target.value)} className="pl-9 border-blue-500/20 focus:border-blue-500/50 bg-blue-500/5" />
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <Filter className="w-4 h-4 text-muted-foreground" />
+              <Filter className="w-4 h-4 text-blue-400" />
               <Select value={filtroDestino} onValueChange={setFiltroDestino}>
-                <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-48 border-blue-500/20 bg-blue-500/5"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos os destinos</SelectItem>
                   {destinos.map(d => <SelectItem key={d.id} value={d.nome}>{d.nome}</SelectItem>)}
@@ -887,7 +898,7 @@ export default function Almoxarifado() {
                 const foto = ativo.ativos_fotos?.[0];
                 return (
                   <div key={ativo.id} onClick={() => setAtivoDetalhes(ativo)}
-                    className="group rounded-lg border border-border bg-card overflow-hidden hover:border-primary/40 transition-all cursor-pointer flex flex-col">
+                    className="group rounded-lg border border-border bg-card overflow-hidden hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 transition-all cursor-pointer flex flex-col">
                     <div className="aspect-[4/3] bg-muted relative overflow-hidden">
                       {foto ? (
                         <img src={foto.url_imagem} alt={ativo.nome}
@@ -966,7 +977,7 @@ export default function Almoxarifado() {
           ) : (
             <div className="space-y-2">
               {envios.map(e => (
-                <div key={e.id} className="rounded-lg border border-border bg-card p-4">
+                <div key={e.id} className="rounded-lg border border-border bg-card p-4 hover:border-blue-500/30 hover:bg-blue-500/5 transition-colors">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
@@ -984,7 +995,7 @@ export default function Almoxarifado() {
                     </div>
                     <div className="flex items-center gap-3 text-sm">
                       <span className="font-medium">{e.origem}</span>
-                      <ArrowRightLeft className="w-4 h-4 text-primary shrink-0" />
+                      <ArrowRightLeft className="w-4 h-4 text-blue-400 shrink-0" />
                       <span className="font-medium">{e.destino}</span>
                     </div>
                     <div className="text-right shrink-0 text-xs text-muted-foreground">

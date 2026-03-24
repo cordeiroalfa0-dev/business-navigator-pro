@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -60,12 +59,14 @@ function SecTitle({icon:Icon,title,color=COR.blue}:{icon:any;title:string;color?
 // ── METAS ─────────────────────────────────────────────────────────────────────
 function RelMetas({data}:{data:any}){
   if(!data)return null;
-  const {metas=[],acoes=[],checkins=[]}=data;
+  const {metas=[],checkins=[],anoFiltro=""}=data;
   const total=metas.length;
   const atingidas=metas.filter((m:any)=>m.status==="atingida").length;
   const emRisco=metas.filter((m:any)=>m.status==="em_risco").length;
   const noPrazo=metas.filter((m:any)=>m.status==="no_prazo").length;
   const atencao=metas.filter((m:any)=>m.status==="atencao").length;
+  const qualitativas=metas.filter((m:any)=>m.unidade==="texto"||m.tipo_meta==="qualitativa").length;
+  const prazoVencidas=metas.filter((m:any)=>m.prazo&&new Date(m.prazo)<new Date()&&m.status!=="atingida").length;
   const porCat=Object.entries(metas.reduce((acc:any,m:any)=>{
     acc[m.categoria||"Sem categoria"]=(acc[m.categoria||"Sem categoria"]||0)+1;return acc;
   },{})).map(([name,value])=>({name,value}));
@@ -79,12 +80,14 @@ function RelMetas({data}:{data:any}){
   const slMap:Record<string,string>={atingida:"Atingida",no_prazo:"No Prazo",atencao:"Atenção",em_risco:"Em Risco"};
   return(
     <div className="space-y-5">
-      <SecTitle icon={Target} title="Metas" color={COR.purple}/>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard label="Total"       value={total}         color={COR.blue}  />
-        <KpiCard label="Atingidas"   value={atingidas}     sub={`${pct(atingidas,total)}%`} color={COR.green}/>
-        <KpiCard label="Em Risco"    value={emRisco}       sub={`${pct(emRisco,total)}%`}   color={COR.red}  />
-        <KpiCard label="Check-ins"   value={checkins.length} color={COR.cyan}/>
+      <SecTitle icon={Target} title={`Metas${anoFiltro?" — "+anoFiltro:""}`} color={COR.purple}/>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KpiCard label="Total"         value={total}            color={COR.blue}/>
+        <KpiCard label="Atingidas"     value={atingidas}        sub={`${pct(atingidas,total)}%`}    color={COR.green}/>
+        <KpiCard label="Em Risco"      value={emRisco}          sub={`${pct(emRisco,total)}%`}      color={COR.red}/>
+        <KpiCard label="Qualitativas"  value={qualitativas}     sub={`${pct(qualitativas,total)}%`} color={COR.purple}/>
+        <KpiCard label="Prazo Vencido" value={prazoVencidas}    sub={prazoVencidas>0?"⚠ atenção!":""} color={prazoVencidas>0?COR.red:COR.green}/>
+        <KpiCard label="Check-ins"     value={checkins.length}  color={COR.cyan}/>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {statusData.length>0&&(
@@ -116,28 +119,77 @@ function RelMetas({data}:{data:any}){
           </div>
         )}
       </div>
+      {/* Mapa de Saúde por Categoria — dinâmico, baseado nas categorias reais */}
+      {porCat.length>0&&(
+        <div className="erp-card p-4 rounded-lg border border-border">
+          <p className="text-[11px] font-semibold mb-3">Mapa de Saúde por Categoria</p>
+          <div className={`grid gap-2 ${porCat.length<=4?"grid-cols-2 sm:grid-cols-4":porCat.length<=6?"grid-cols-2 sm:grid-cols-3 lg:grid-cols-6":"grid-cols-2 sm:grid-cols-4 lg:grid-cols-8"}`}>
+            {porCat.map((cat:any,idx:number)=>{
+              const PALETTE=[COR.blue,COR.cyan,COR.yellow,COR.orange,COR.purple,COR.green,COR.red,"hsl(330,70%,50%)"];
+              const col=PALETTE[idx%PALETTE.length];
+              const catMetas=metas.filter((m:any)=>(m.categoria||"Sem categoria")===cat.name);
+              const catAting=catMetas.filter((m:any)=>m.status==="atingida").length;
+              const catPct=Math.round((catAting/catMetas.length)*100);
+              const statusLabel=catPct>=75?"Ótimo":catPct>=50?"Regular":"Atenção";
+              const statusCor=catPct>=75?COR.green:catPct>=50?COR.yellow:COR.red;
+              return(
+                <div key={cat.name} className="rounded p-3 text-center"
+                     style={{background:`${col}12`,border:`1px solid ${col}30`}}>
+                  <p className="text-[10px] font-semibold text-foreground mb-1 truncate" title={cat.name}>{cat.name}</p>
+                  <p className="text-lg font-bold" style={{color:col}}>{catPct}%</p>
+                  <p className="text-[9px] font-medium mt-0.5" style={{color:statusCor}}>{statusLabel}</p>
+                  <p className="text-[9px] text-muted-foreground">{catAting}/{catMetas.length}</p>
+                  <div className="h-1 rounded-full bg-secondary overflow-hidden mt-1.5">
+                    <div className="h-full rounded-full" style={{width:`${catPct}%`,background:col}}/>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="erp-card rounded-lg border border-border overflow-hidden">
         <div className="px-4 py-2 border-b border-border bg-muted/30">
           <p className="text-[11px] font-semibold">Listagem de Metas ({total})</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[11px]">
-            <thead><tr className="border-b border-border">{["Nome","Categoria","Responsável","Progresso","Status","Obra"].map(h=><th key={h} className="py-2 px-3 text-left font-medium text-muted-foreground">{h}</th>)}</tr></thead>
+            <thead><tr className="border-b border-border">{["Nome","Tipo","Categoria","Responsável","Progresso","Status","Prazo"].map(h=><th key={h} className="py-2 px-3 text-left font-medium text-muted-foreground">{h}</th>)}</tr></thead>
             <tbody>
               {metas.slice(0,30).map((m:any)=>{
                 const p=m.objetivo>0?Math.min(Math.round((m.atual/m.objetivo)*100),100):0;
+                const isQual=m.unidade==="texto"||m.tipo_meta==="qualitativa";
+                const prazoVencido=m.prazo&&new Date(m.prazo)<new Date()&&m.status!=="atingida";
+                const rowBg=prazoVencido?"hsl(0,72%,51%,0.05)":"";
                 return(
-                  <tr key={m.id} className="border-b border-border/50 hover:bg-muted/20">
-                    <td className="py-1.5 px-3 font-medium text-foreground max-w-[180px] truncate">{m.nome}</td>
+                  <tr key={m.id} className="border-b border-border/50 hover:bg-muted/20" style={{background:rowBg}}>
+                    <td className="py-1.5 px-3 font-medium text-foreground max-w-[180px] truncate">
+                      {m.nome}
+                      {prazoVencido&&<span className="ml-1 text-[9px] text-red-400">⚠ vencida</span>}
+                    </td>
+                    <td className="py-1.5 px-3">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                        style={{background:isQual?"hsl(271,60%,55%,0.15)":"hsl(207,89%,48%,0.15)",
+                                color:isQual?"hsl(271,60%,55%)":"hsl(207,89%,48%)"}}>
+                        {isQual?"Qualit.":"Quant."}
+                      </span>
+                    </td>
                     <td className="py-1.5 px-3 text-muted-foreground">{m.categoria||"—"}</td>
                     <td className="py-1.5 px-3 text-muted-foreground">{m.responsavel||"—"}</td>
                     <td className="py-1.5 px-3">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{width:`${p}%`,background:scMap[m.status]||COR.gray}}/>
+                      {isQual?(
+                        <span className="text-[10px] text-muted-foreground italic">
+                          {m.status==="atingida"?"✓ Concluída":"Pendente"}
+                        </span>
+                      ):(
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                            <div className="h-full rounded-full" style={{width:`${p}%`,background:scMap[m.status]||COR.gray}}/>
+                          </div>
+                          <span className="text-[10px] font-medium w-8 text-right">{p}%</span>
                         </div>
-                        <span className="text-[10px] font-medium w-8 text-right">{p}%</span>
-                      </div>
+                      )}
                     </td>
                     <td className="py-1.5 px-3">
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
@@ -145,7 +197,9 @@ function RelMetas({data}:{data:any}){
                         {slMap[m.status]||m.status}
                       </span>
                     </td>
-                    <td className="py-1.5 px-3 text-muted-foreground text-[10px]">{m.local_obra||"—"}</td>
+                    <td className="py-1.5 px-3 text-[10px]" style={{color:prazoVencido?COR.red:"hsl(var(--muted-foreground))"}}>
+                      {m.prazo?new Date(m.prazo).toLocaleDateString("pt-BR"):"—"}
+                    </td>
                   </tr>
                 );
               })}
@@ -164,13 +218,20 @@ function RelExecucao({data}:{data:any}){
   const metasObra=data.metasObra??[];
   const porEtapa=Object.entries(obras.reduce((acc:any,o:any)=>{acc[o.etapa_atual]=(acc[o.etapa_atual]||0)+1;return acc;},{})).map(([name,value])=>({name,value}));
   const media=obras.length>0?Math.round(obras.reduce((s:number,o:any)=>s+(o.progresso||0),0)/obras.length):0;
+  // Progresso sugerido por metas: % de metas atingidas por obra
+  const progressoSugerido=(obraId:string)=>{
+    const om=metasObra.filter((m:any)=>m.obra_id===obraId);
+    if(om.length===0)return null;
+    return Math.round(om.filter((m:any)=>m.status==="atingida").length/om.length*100);
+  };
+  const atrasadas=obras.filter((o:any)=>o.data_prevista&&new Date(o.data_prevista)<new Date()&&o.progresso<100).length;
   return(
     <div className="space-y-5">
       <SecTitle icon={HardHat} title="Execução de Obra" color={COR.orange}/>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <KpiCard label="Total de Obras"   value={obras.length} color={COR.blue}/>
-        <KpiCard label="Progresso Médio"  value={`${media}%`}  color={COR.green}/>
-        <KpiCard label="Concluídas"       value={obras.filter((o:any)=>o.progresso>=100).length} color={COR.cyan}/>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <KpiCard label="Total de Obras"   value={obras.length}  color={COR.blue}/>
+        <KpiCard label="Progresso Médio"  value={`${media}%`}   color={COR.green}/>
+        <KpiCard label="Atrasadas"        value={atrasadas}     color={atrasadas>0?COR.red:COR.green} sub={atrasadas>0?"prazo vencido":""}/>
         <KpiCard label="Metas Vinculadas" value={metasObra.length} color={COR.purple}/>
       </div>
       {porEtapa.length>0&&(
@@ -195,9 +256,16 @@ function RelExecucao({data}:{data:any}){
           <table className="w-full text-[11px]">
             <thead><tr className="border-b border-border">{["Nome","Etapa","Responsável","Progresso","Previsão"].map(h=><th key={h} className="py-2 px-3 text-left font-medium text-muted-foreground">{h}</th>)}</tr></thead>
             <tbody>
-              {obras.map((o:any)=>(
-                <tr key={o.id} className="border-b border-border/50 hover:bg-muted/20">
-                  <td className="py-1.5 px-3 font-medium text-foreground">{o.nome}</td>
+              {obras.map((o:any)=>{
+                const sug=progressoSugerido(o.id);
+                const atrasada=o.data_prevista&&new Date(o.data_prevista)<new Date()&&o.progresso<100;
+                return(
+                <tr key={o.id} className="border-b border-border/50 hover:bg-muted/20"
+                    style={{background:atrasada?"hsl(0,72%,51%,0.05)":""}}>
+                  <td className="py-1.5 px-3 font-medium text-foreground">
+                    {o.nome}
+                    {atrasada&&<span className="ml-1 text-[9px] text-red-400">⚠ atrasada</span>}
+                  </td>
                   <td className="py-1.5 px-3 text-muted-foreground">{o.etapa_atual}</td>
                   <td className="py-1.5 px-3 text-muted-foreground">{o.responsavel||"—"}</td>
                   <td className="py-1.5 px-3">
@@ -207,10 +275,18 @@ function RelExecucao({data}:{data:any}){
                       </div>
                       <span className="text-[10px] w-8 text-right">{o.progresso}%</span>
                     </div>
+                    {sug!==null&&sug!==o.progresso&&(
+                      <p className="text-[9px] mt-0.5" style={{color:"hsl(var(--muted-foreground))"}}>
+                        Sugerido por metas: <strong>{sug}%</strong>
+                      </p>
+                    )}
                   </td>
-                  <td className="py-1.5 px-3 text-muted-foreground">{o.data_prevista?new Date(o.data_prevista).toLocaleDateString("pt-BR"):"—"}</td>
+                  <td className="py-1.5 px-3 text-[10px]" style={{color:atrasada?COR.red:"hsl(var(--muted-foreground))"}}>
+                    {o.data_prevista?new Date(o.data_prevista).toLocaleDateString("pt-BR"):"—"}
+                  </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -222,7 +298,7 @@ function RelExecucao({data}:{data:any}){
 // ── FINANCEIRO ────────────────────────────────────────────────────────────────
 function RelFinanceiro({data}:{data:any}){
   if(!data)return null;
-  const {faturamentos=[],contasPagar=[],contasReceber=[]}=data;
+  const {faturamentos=[],contasPagar=[],contasReceber=[],anoFiltro=""}=data;
   const totalFat=faturamentos.reduce((s:number,f:any)=>s+Number(f.valor||0),0);
   const totalPag=contasPagar.reduce((s:number,c:any)=>s+Number(c.valor||0),0);
   const totalRec=contasReceber.reduce((s:number,c:any)=>s+Number(c.valor||0),0);
@@ -234,7 +310,7 @@ function RelFinanceiro({data}:{data:any}){
   ].filter(s=>s.value>0);
   return(
     <div className="space-y-5">
-      <SecTitle icon={DollarSign} title="Financeiro" color={COR.green}/>
+      <SecTitle icon={DollarSign} title={`Financeiro${anoFiltro?" — "+anoFiltro:""}`} color={COR.green}/>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KpiCard label="Faturamento"    value={fmtR(totalFat)} color={COR.green}/>
         <KpiCard label="A Pagar"        value={fmtR(totalPag)} color={COR.red}/>
@@ -410,6 +486,7 @@ function RelAlmox({data}:{data:any}){
 
 // ── DIÁRIO DE OBRA ────────────────────────────────────────────────────────────
 function RelDiario({data}:{data:any}){
+  if(!data)return null;
   const{diarios=[]}=data;
   const total=diarios.length;
   const totalTrab=diarios.reduce((s:number,d:any)=>s+(d.total_trabalhadores||0),0);
@@ -538,6 +615,8 @@ export default function Relatorios(){
   const [exporting,setExporting]   = useState(false);
   const [dataInicio,setDataInicio] = useState("");
   const [dataFim,setDataFim]       = useState("");
+  const [anoFiltro,setAnoFiltro]   = useState(String(new Date().getFullYear()));
+  const ANOS_DISPONIVEIS=["2024","2025","2026","2027"];
   const [dadosMetas,setDadosMetas]         = useState<any>(null);
   const [dadosExecucao,setDadosExecucao]   = useState<any>(null);
   const [dadosFinanceiro,setDadosFinanceiro] = useState<any>(null);
@@ -554,13 +633,20 @@ export default function Relatorios(){
   };
 
   const loadMetas=useCallback(async()=>{
-    const[{data:metas},{data:acoes},{data:checkins}]=await Promise.all([
+    const[{data:metas},{data:checkins}]=await Promise.all([
       applyDate(supabase.from("metas").select("*").order("created_at",{ascending:false})),
-      supabase.from("acoes_meta").select("*"),
       supabase.from("meta_checkins").select("*"),
     ]);
-    setDadosMetas({metas:metas??[],acoes:acoes??[],checkins:checkins??[]});
-  },[dataInicio,dataFim]);
+    // Filtro de ano: se não há dataInicio/dataFim, filtra pelo ano global
+    let metasFiltradas=metas??[];
+    if(!dataInicio&&!dataFim&&anoFiltro){
+      metasFiltradas=metasFiltradas.filter((m:any)=>{
+        const d=new Date(m.created_at);
+        return d.getFullYear()===parseInt(anoFiltro);
+      });
+    }
+    setDadosMetas({metas:metasFiltradas,checkins:checkins??[],anoFiltro});
+  },[dataInicio,dataFim,anoFiltro]);
 
   const loadExecucao=useCallback(async()=>{
     const{data:obras}=await applyDate(supabase.from("execucao_obras").select("*").order("created_at",{ascending:false}));
@@ -574,13 +660,22 @@ export default function Relatorios(){
   },[dataInicio,dataFim]);
 
   const loadFinanceiro=useCallback(async()=>{
-    const[{data:fat},{data:pagar},{data:receber}]=await Promise.all([
-      applyDate(supabase.from("faturamento").select("*").order("data_emissao",{ascending:false}),"data_emissao"),
-      applyDate(supabase.from("contas_pagar").select("*").order("data_vencimento",{ascending:false}),"data_vencimento"),
-      applyDate(supabase.from("contas_receber").select("*").order("data_vencimento",{ascending:false}),"data_vencimento"),
-    ]);
-    setDadosFinanceiro({faturamentos:fat??[],contasPagar:pagar??[],contasReceber:receber??[]});
-  },[dataInicio,dataFim]);
+    let qFat=supabase.from("faturamento").select("*").order("data_emissao",{ascending:false});
+    let qPag=supabase.from("contas_pagar").select("*").order("data_vencimento",{ascending:false});
+    let qRec=supabase.from("contas_receber").select("*").order("data_vencimento",{ascending:false});
+    if(dataInicio||dataFim){
+      qFat=applyDate(qFat,"data_emissao") as any;
+      qPag=applyDate(qPag,"data_vencimento") as any;
+      qRec=applyDate(qRec,"data_vencimento") as any;
+    } else if(anoFiltro){
+      const ini=`${anoFiltro}-01-01`, fim=`${anoFiltro}-12-31`;
+      qFat=qFat.gte("data_emissao",ini).lte("data_emissao",fim) as any;
+      qPag=qPag.gte("data_vencimento",ini).lte("data_vencimento",fim) as any;
+      qRec=qRec.gte("data_vencimento",ini).lte("data_vencimento",fim) as any;
+    }
+    const[{data:fat},{data:pagar},{data:receber}]=await Promise.all([qFat,qPag,qRec]);
+    setDadosFinanceiro({faturamentos:fat??[],contasPagar:pagar??[],contasReceber:receber??[],anoFiltro});
+  },[dataInicio,dataFim,anoFiltro]);
 
   const loadObras=useCallback(async()=>{
     const[{data:emp},{data:cont},{data:mat}]=await Promise.all([
@@ -589,7 +684,7 @@ export default function Relatorios(){
       supabase.from("materiais").select("*").order("created_at",{ascending:false}),
     ]);
     setDadosObras({empreendimentos:emp??[],contratos:cont??[],materiais:mat??[]});
-  },[dataInicio,dataFim]);
+  },[]);
 
   const loadAlmox=useCallback(async()=>{
     const[{data:ativos},{data:envios},{data:destinos}]=await Promise.all([
@@ -598,21 +693,18 @@ export default function Relatorios(){
       supabase.from("ativos_destinos").select("*"),
     ]);
     setDadosAlmox({ativos:ativos??[],envios:envios??[],destinos:destinos??[]});
-  },[dataInicio,dataFim]);
+  },[]);
 
   const loadDiario=useCallback(async()=>{
-    const[{data:diarios},{data:efetivo}]=await Promise.all([
-      applyDate(supabase.from("diario_obra").select("*").order("data_registro",{ascending:false}),"data_registro"),
-      supabase.from("diario_obra_efetivo").select("*"),
-    ]);
-    setDadosDiario({diarios:diarios??[],efetivo:efetivo??[]});
+    const{data:diarios}=await applyDate(supabase.from("diario_obra").select("*").order("data_registro",{ascending:false}),"data_registro");
+    setDadosDiario({diarios:diarios??[]});
   },[dataInicio,dataFim]);
 
   const loadRanking=useCallback(async()=>{
     const mesAno=dataInicio?dataInicio.slice(0,7):new Date().toISOString().slice(0,7);
     const{data:ranking}=await supabase.from("responsavel_performance").select("*").eq("mes_ano",mesAno).order("taxa_sucesso",{ascending:false});
     setDadosRanking({ranking:ranking??[]});
-  },[dataInicio,dataFim]);
+  },[dataInicio]);
 
   const carregar=useCallback(async()=>{
     setLoading(true);
@@ -628,7 +720,7 @@ export default function Relatorios(){
       else if(modulo==="ranking")      await loadRanking();
     }catch{toast({title:"Erro ao carregar dados",variant:"destructive"});}
     finally{setLoading(false);}
-  },[modulo,loadMetas,loadExecucao,loadFinanceiro,loadObras,loadAlmox,loadDiario,loadRanking]);
+  },[modulo,loadMetas,loadExecucao,loadFinanceiro,loadObras,loadAlmox,loadRanking]);
 
   useEffect(()=>{carregar();},[carregar]);
 
@@ -673,7 +765,7 @@ export default function Relatorios(){
           <BarChart3 className="w-5 h-5" style={{color:"hsl(var(--pbi-yellow))"}}/>
           <div>
             <h1 className="text-base font-semibold text-white">Relatórios</h1>
-            <p className="text-[11px]" style={{color:"hsl(0,0%,72%)"}}>Selecione o módulo e o período</p>
+            <p className="text-[11px]" style={{color:"hsl(0,0%,72%)"}}>Módulo: {MODULOS.find(m=>m.key===modulo)?.label} · Ano: {anoFiltro}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -697,13 +789,22 @@ export default function Relatorios(){
           <Filter className="w-4 h-4 text-primary"/>
           <p className="text-[12px] font-semibold text-foreground">Filtros</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="space-y-1">
             <label className="text-[11px] text-muted-foreground font-medium">Módulo</label>
             <Select value={modulo} onValueChange={setModulo}>
               <SelectTrigger className="h-8 text-[12px]"><SelectValue/></SelectTrigger>
               <SelectContent>
                 {MODULOS.map(m=><SelectItem key={m.key} value={m.key} className="text-[12px]">{m.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1"><Calendar className="w-3 h-3"/>Ano (global)</label>
+            <Select value={anoFiltro} onValueChange={setAnoFiltro}>
+              <SelectTrigger className="h-8 text-[12px]"><SelectValue/></SelectTrigger>
+              <SelectContent>
+                {ANOS_DISPONIVEIS.map(a=><SelectItem key={a} value={a} className="text-[12px]">{a}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

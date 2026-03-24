@@ -250,7 +250,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         {hasChildren && expanded && (
-          <div className="ml-4 mt-px space-y-px border-l border-sidebar-border pl-3 mb-1">
+          <div className="mx-2 mt-1 mb-2 rounded-md border border-blue-500/30 bg-blue-500/10 backdrop-blur-sm py-1 space-y-px">
             {mod.children!.map(child => (
               <Link
                 key={child.path}
@@ -259,12 +259,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 className={`
                   flex items-center gap-2 px-3 py-[6px] rounded text-[12px] transition-colors
                   ${isActive(child.path)
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    : "text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/40"
+                    ? "bg-blue-500/20 text-blue-200 font-medium"
+                    : "text-blue-300/80 hover:text-blue-100 hover:bg-blue-500/20"
                   }
                 `}
               >
-                <div className="w-1 h-1 rounded-full bg-current opacity-50 shrink-0" />
+                <div className="w-1 h-1 rounded-full bg-current opacity-60 shrink-0" />
                 {child.label}
               </Link>
             ))}

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTheme } from "@/hooks/useTheme";
 import {
   DollarSign, Building2, HardHat, Users,
-  TrendingUp, Calendar, Filter, ChevronDown, Target, Layers,
+  TrendingUp, Calendar, Filter, ChevronDown, Target, Layers, Download,
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, Legend,
@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import DashboardRouter from "@/components/DashboardRouter";
+import { exportDashboardToPDF } from "@/lib/export-dashboard-pdf";
 
 const PBITile = ({ children, title, className = "" }: { children: React.ReactNode; title?: string; className?: string }) => (
   <div className={`pbi-tile ${className}`}>
@@ -22,7 +23,7 @@ const PBITile = ({ children, title, className = "" }: { children: React.ReactNod
 
 const ANOS_DISPONIVEIS = ["2024", "2025", "2026", "2027"];
 
-type MetaItem = { status: string; categoria: string; obra_id: string | null };
+type MetaItem = { status: string; categoria: string; obra_id: string | null; prazo?: string | null };
 
 export default function Dashboard() {
   const [periodo, setPeriodo] = useState(String(new Date().getFullYear()));
@@ -40,7 +41,9 @@ export default function Dashboard() {
   const [obrasPorStatus, setObrasPorStatus] = useState<{ name: string; value: number; color: string }[]>([]);
   const [fluxoDataAll, setFluxoDataAll] = useState<{ month: string; ano: number; receita: number; custo: number }[]>([]);
   const [progressoObras, setProgressoObras] = useState<{ obra: string; progresso: number }[]>([]);
-  const [mapaSaude, setMapaSaude] = useState<{ label: string; pct: number; total: number; atingidas: number }[]>([]);
+  const [mapaSaude, setMapaSaude] = useState<{ label: string; pct: number; total: number; atingidas: number; color: string }[]>([]);
+  const [exportando, setExportando] = useState(false);
+  const dashboardRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -48,7 +51,7 @@ export default function Dashboard() {
 
         const [metas, fat, cp, emp, cont, execucao] = await Promise.all([
           // Busca obra_id junto — necessário para separar Obra vs Estratégicas
-          supabase.from("metas").select("status,categoria,obra_id"),
+          supabase.from("metas").select("status,categoria,obra_id,prazo"),
           supabase.from("faturamento").select("valor,data_emissao"),
           supabase.from("contas_pagar").select("valor,data_emissao"),
           supabase.from("empreendimentos").select("nome,status,unidades,vendidas,fase"),
@@ -61,18 +64,32 @@ export default function Dashboard() {
         // Guarda todas as metas para filtrar por ano depois
         if (metas.data) setMetasAll(metas.data as MetaItem[]);
 
-        // Mapa de saúde — usa todas as metas (sem filtro de ano)
+        // Mapa de saúde — categorias dinâmicas do banco (não hardcoded)
         if (metas.data) {
           const metasArr = metas.data as any[];
-          const CATEGORIAS_SAUDE = ["Engenharia", "Projetos", "Orçamentos", "Contratos", "Quantitativos", "Materiais"];
-          setMapaSaude(CATEGORIAS_SAUDE.map(cat => {
-            const itensCat = metasArr.filter(m =>
-              (m.categoria || "").toLowerCase().trim() === cat.toLowerCase().trim()
+          const PALETTE = [
+            "hsl(207, 89%, 48%)", "hsl(174, 62%, 47%)", "hsl(42, 65%, 56%)",
+            "hsl(28, 87%, 55%)", "hsl(271, 60%, 55%)", "hsl(152, 60%, 38%)",
+            "hsl(0, 72%, 51%)", "hsl(330, 70%, 50%)",
+          ];
+          // Coleta categorias únicas reais, exclui vazias
+          const categoriasUnicas = Array.from(
+            new Set(metasArr.map((m: any) => (m.categoria || "").trim()).filter(Boolean))
+          ).sort();
+          const saude = categoriasUnicas.map((cat, idx) => {
+            const itensCat = metasArr.filter((m: any) =>
+              (m.categoria || "").toLowerCase().trim() === cat.toLowerCase()
             );
             const total = itensCat.length;
-            const atingidas = itensCat.filter(m => m.status === "atingida").length;
-            return { label: cat, pct: total > 0 ? Math.round((atingidas / total) * 100) : 0, total, atingidas };
-          }));
+            const atingidas = itensCat.filter((m: any) => m.status === "atingida").length;
+            return {
+              label: cat,
+              pct: total > 0 ? Math.round((atingidas / total) * 100) : 0,
+              total, atingidas,
+              color: PALETTE[idx % PALETTE.length],
+            };
+          });
+          setMapaSaude(saude);
         }
 
         // Faturamento — guarda todos com data para filtrar por ano
@@ -159,6 +176,29 @@ export default function Dashboard() {
     };
   }, []);
 
+  // ─── Exportar PDF ────────────────────────────────────────────────────────
+  const handleExportPDF = async () => {
+    if (!dashboardRef.current) return;
+    setExportando(true);
+    try {
+      await exportDashboardToPDF(dashboardRef.current, {
+        totalAtividades: metaStats.total,
+        atividadesPrevistas: metaStats.total - metaStats.emRisco,
+        atividadesNaoPrevistas: metaStats.emRisco,
+        atividadesCompletas: metaStats.atingidas,
+        atividadesAtrasadas: metaStats.emRisco,
+        atividadesNaoIniciadas: metaStats.total - metaStats.atingidas - metaStats.emRisco,
+        dataAnalise: new Date().toLocaleDateString("pt-BR"),
+        periodo,
+        comparacao: { execucaoDecrescimo: 0, incompletasAcrescimo: 0, dataAnterior: "" },
+      });
+    } catch {
+      // silencioso — o exportDashboardToPDF já loga o erro
+    } finally {
+      setExportando(false);
+    }
+  };
+
   // ─── Derivados filtrados pelo ano selecionado ───────────────────────────
   const anoNum = parseInt(periodo);
 
@@ -173,9 +213,16 @@ export default function Dashboard() {
   // Faturamento filtrado pelo ano (para KPI)
   const faturamentoAno = fluxoFiltrado.reduce((s, d) => s + d.receita * 1000, 0);
 
+  // ─── Filtro de metas pelo ano selecionado ──────────────────────────
+  // Usa o campo "prazo" para filtrar; metas sem prazo são sempre incluídas
+  const metasFiltradas = metasAll.filter(m => {
+    if (!m.prazo) return true; // sem prazo: exibir em todos os anos
+    return new Date(m.prazo).getFullYear() === anoNum;
+  });
+
   // Metas separadas: de obra (tem obra_id) vs estratégicas (sem obra_id)
-  const metasDeObra = metasAll.filter(m => m.obra_id !== null && m.obra_id !== undefined);
-  const metasEstrategicas = metasAll.filter(m => !m.obra_id);
+  const metasDeObra = metasFiltradas.filter(m => m.obra_id !== null && m.obra_id !== undefined);
+  const metasEstrategicas = metasFiltradas.filter(m => !m.obra_id);
 
   const statsObra = {
     total: metasDeObra.length,
@@ -188,11 +235,11 @@ export default function Dashboard() {
     emRisco: metasEstrategicas.filter(m => m.status === "em_risco").length,
   };
 
-  // Totais globais (para o bloco superior de KPIs de metas)
+  // Totais filtrados pelo ano (bloco superior de KPIs de metas)
   const metaStats = {
-    total: metasAll.length,
-    atingidas: metasAll.filter(m => m.status === "atingida").length,
-    emRisco: metasAll.filter(m => m.status === "em_risco").length,
+    total: metasFiltradas.length,
+    atingidas: metasFiltradas.filter(m => m.status === "atingida").length,
+    emRisco: metasFiltradas.filter(m => m.status === "em_risco").length,
   };
 
   const kpis = [
@@ -211,7 +258,7 @@ export default function Dashboard() {
   const metaBarColor = (pct: number) => pct >= 80 ? "hsl(152, 60%, 38%)" : pct >= 50 ? "hsl(207, 89%, 48%)" : pct >= 30 ? "hsl(42, 65%, 56%)" : "hsl(0, 72%, 51%)";
 
   const dashboardCompleta = (
-    <div className="space-y-3">
+    <div className="space-y-3" ref={dashboardRef}>
       {isNormal && (
         <div className="pbi-tile" style={{ borderLeft: "3px solid hsl(207, 89%, 48%)" }}>
           <p className="text-[12px] font-medium" style={{ color: "hsl(var(--pbi-text-primary))" }}>
@@ -253,6 +300,16 @@ export default function Dashboard() {
         {fluxoFiltrado.length === 0 && fluxoDataAll.length > 0 && (
           <span className="text-[11px] text-muted-foreground">Sem dados financeiros para {periodo}</span>
         )}
+        <button
+          onClick={handleExportPDF}
+          disabled={exportando}
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+          style={{ background: "hsl(var(--pbi-yellow))", color: "hsl(var(--pbi-dark))" }}
+          title="Exportar dashboard como PDF"
+        >
+          <Download className="w-3 h-3" />
+          {exportando ? "Gerando..." : "Exportar PDF"}
+        </button>
       </div>
 
       {/* KPIs de Metas globais */}
@@ -302,7 +359,7 @@ export default function Dashboard() {
                 <ComposedChart data={fluxoFiltrado}>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: axisColor }} stroke={axisColor} />
-                  <YAxis tick={{ fontSize: 11, fill: axisColor }} stroke={axisColor} />
+                  <YAxis tick={{ fontSize: 11, fill: axisColor }} stroke={axisColor} label={{ value: "R$ mil", angle: -90, position: "insideLeft", offset: 12, style: { fontSize: 10, fill: axisColor } }} />
                   <Tooltip formatter={(value: number) => [`R$ ${value.toFixed(0)}k`, ""]} contentStyle={tooltipStyle} />
                   <Legend iconType="square" wrapperStyle={{ fontSize: 11 }} />
                   <Bar dataKey="receita" fill="hsl(207, 89%, 48%)" radius={[2, 2, 0, 0]} barSize={18} name="Faturamento" />
@@ -456,43 +513,32 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Mapa de Saúde */}
+      {/* Mapa de Saúde — categorias dinâmicas do banco */}
       {!isNormal && (
         <PBITile title="Mapa de Saúde por Categoria">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-1">
-            {[
-              { label: "Engenharia", color: "hsl(207, 89%, 48%)" },
-              { label: "Projetos", color: "hsl(174, 62%, 47%)" },
-              { label: "Orçamentos", color: "hsl(42, 65%, 56%)" },
-              { label: "Contratos", color: "hsl(28, 87%, 55%)" },
-              { label: "Quantitativos", color: "hsl(271, 60%, 55%)" },
-              { label: "Materiais", color: "hsl(152, 60%, 38%)" },
-            ].map(cat => {
-              const dado = mapaSaude.find(m => m.label === cat.label);
-              const pct = dado?.pct ?? 0;
-              const total = dado?.total ?? 0;
-              const atingidas = dado?.atingidas ?? 0;
-              const status = pct >= 75 ? "Ótimo" : pct >= 50 ? "Regular" : total === 0 ? "Sem metas" : "Atenção";
-              const statusColor = pct >= 75 ? "hsl(152, 60%, 38%)" : pct >= 50 ? "hsl(42, 65%, 56%)" : total === 0 ? "hsl(0, 0%, 55%)" : "hsl(0, 72%, 51%)";
-              return (
-                <div key={cat.label} className="rounded p-3 text-center" style={{ background: `${cat.color}12`, border: `1px solid ${cat.color}30` }}>
-                  <p className="text-[10px] font-semibold text-foreground mb-1">{cat.label}</p>
-                  <p className="text-xl font-bold" style={{ color: total === 0 ? "hsl(0, 0%, 55%)" : cat.color }}>
-                    {total === 0 ? "—" : `${pct}%`}
-                  </p>
-                  <p className="text-[9px] font-medium mt-0.5" style={{ color: statusColor }}>{status}</p>
-                  {total > 0 && <p className="text-[9px] text-muted-foreground mt-0.5">{atingidas}/{total} metas</p>}
-                  <div className="h-1 rounded-full bg-secondary overflow-hidden mt-2">
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: cat.color }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          {mapaSaude.every(m => m.total === 0) && (
-            <p className="text-[11px] text-muted-foreground text-center mt-3">
-              Cadastre metas com categorias: Engenharia, Projetos, Orçamentos, Contratos, Quantitativos ou Materiais.
+          {mapaSaude.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground text-center py-4">
+              Cadastre metas com categorias para ver o mapa de saúde.
             </p>
+          ) : (
+            <div className={`grid gap-2 mt-1 ${mapaSaude.length <= 3 ? "grid-cols-1 sm:grid-cols-3" : mapaSaude.length <= 6 ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" : "grid-cols-2 sm:grid-cols-4 lg:grid-cols-8"}`}>
+              {mapaSaude.map(cat => {
+                const { label, pct, total, atingidas, color } = cat;
+                const status = pct >= 75 ? "Ótimo" : pct >= 50 ? "Regular" : "Atenção";
+                const statusColor = pct >= 75 ? "hsl(152, 60%, 38%)" : pct >= 50 ? "hsl(42, 65%, 56%)" : "hsl(0, 72%, 51%)";
+                return (
+                  <div key={label} className="rounded p-3 text-center" style={{ background: `${color}12`, border: `1px solid ${color}30` }}>
+                    <p className="text-[10px] font-semibold text-foreground mb-1 truncate" title={label}>{label}</p>
+                    <p className="text-xl font-bold" style={{ color }}>{`${pct}%`}</p>
+                    <p className="text-[9px] font-medium mt-0.5" style={{ color: statusColor }}>{status}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">{atingidas}/{total} metas</p>
+                    <div className="h-1 rounded-full bg-secondary overflow-hidden mt-2">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </PBITile>
       )}

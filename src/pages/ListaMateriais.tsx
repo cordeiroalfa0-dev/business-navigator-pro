@@ -32,7 +32,7 @@ export const ListaMateriais: React.FC = () => {
   }
 
   const handleDelete = async (id: string, nome: string) => {
-    if (!confirm(`Tem certeza que deseja excluir "${nome}"?`)) return
+    if (!(await confirm({ message: `Tem certeza que deseja excluir "${nome}"?`, title: "Excluir Item", confirmLabel: "Excluir", variant: "danger" }))) return
     try {
       await materialService.deletarMaterial(id)
       carregarMateriais()

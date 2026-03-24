@@ -8,6 +8,7 @@ import AppLayout from "@/components/AppLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
+import { ConfirmProvider } from "@/hooks/useConfirm";
 
 // ── Lazy-loaded pages (code splitting — cada página vira chunk separado) ──
 const Dashboard          = lazy(() => import("@/pages/Dashboard"));
@@ -97,6 +98,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <TooltipProvider>
+        <ConfirmProvider>
         <AuthProvider>
           <Toaster />
           <Sonner />
@@ -110,6 +112,7 @@ const App = () => (
             </Suspense>
           </BrowserRouter>
         </AuthProvider>
+        </ConfirmProvider>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>

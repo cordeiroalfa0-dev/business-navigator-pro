@@ -1,8 +1,7 @@
 -- ============================================================
 -- Keep-Alive System — Supabase Free Tier
 -- Evita auto-pause após 7 dias sem atividade
--- Cron: a cada 2 dias às 08:00 UTC  (0 8 */2 * *)
--- Gerado por setup_sanremo.py
+-- Cron: a cada 2 dias às 23:00 UTC = 20:00 Brasília (0 23 */2 * *)
 -- ============================================================
 
 -- Extensões necessárias
@@ -44,10 +43,10 @@ SELECT
     END                                                    AS status
 FROM public.system_heartbeats;
 
--- Cron job: a cada 2 dias às 08:00 UTC
+-- Cron job: a cada 2 dias às 23:00 UTC (= 20:00 horário de Brasília)
 SELECT cron.schedule(
     'keep-alive-every-2-days',
-    '0 8 */2 * *',
+    '0 23 */2 * *',
     $$
     SELECT net.http_post(
         url     := 'https://fntenxsyxzdrmqiweorq.supabase.co/functions/v1/keep-alive',

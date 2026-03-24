@@ -3,6 +3,7 @@ import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -69,6 +70,7 @@ const EMPTY_FORM = {
 export default function DiarioObra() {
   const { isAdmin, userRole, user } = useAuth();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const canEdit = isAdmin || userRole === "master";
 
   const [diarios,    setDiarios]    = useState<Diario[]>([]);
@@ -185,7 +187,7 @@ export default function DiarioObra() {
 
   // ── Excluir ──────────────────────────────────────────────────────────────
   const handleDelete = async (id: string) => {
-    if (!confirm("Excluir este RDO permanentemente?")) return;
+    if (!(await confirm({ message: "Excluir este RDO permanentemente? Esta ação não pode ser desfeita.", title: "Excluir RDO", confirmLabel: "Excluir", variant: "danger" }))) return;
     await supabase.from("diario_obra").delete().eq("id", id);
     toast({ title: "RDO excluído" });
     fetchDiarios();

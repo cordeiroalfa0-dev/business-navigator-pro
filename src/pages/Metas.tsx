@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useConfirm } from "@/hooks/useConfirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { useRealtimeTable } from "@/hooks/useRealtimeTable";
+import { subscribe } from "@/store/metasStore";
 import MetaFileUpload from "@/components/MetaFileUpload";
 import { MetaAcoesKanban } from "@/components/MetaAcoesKanban";
 import { useMetaCampos } from "@/hooks/useMetaCampos";
@@ -648,6 +649,7 @@ function CampoExtraToggleSection({ camposExtras, ativosMap, onToggle, onAdiciona
 
 export default function Metas() {
   const { toast } = useToast();
+  const confirm = useConfirm();
   const { user, profile, canEditMetas, userRole } = useAuth();
   const metaCampos = useMetaCampos();
   const { registrar: registrarAudit } = useAudit();
@@ -777,9 +779,14 @@ export default function Metas() {
     supabase.from("profiles").select("id, full_name, email").order("full_name")
       .then(({ data }) => { if (data) setUsuariosDisponiveis(data as any[]); });
   }, [fetchMetas, fetchAcoes, fetchCheckins]);
-  useRealtimeTable("metas", fetchMetas);
-  useRealtimeTable("acoes_meta", fetchAcoes);
-  useRealtimeTable("meta_checkins", fetchCheckins);
+  // Fase 1 — Store centralizado: um único canal Supabase para as 3 tabelas
+  // Elimina subscriptions duplicadas ao remontar
+  useEffect(() => {
+    const unsub1 = subscribe("metas",         fetchMetas);
+    const unsub2 = subscribe("acoes_meta",    fetchAcoes);
+    const unsub3 = subscribe("meta_checkins", fetchCheckins);
+    return () => { unsub1(); unsub2(); unsub3(); };
+  }, [fetchMetas, fetchAcoes, fetchCheckins]);
 
   useEffect(() => {
     if (canEditMetas) setActiveTab("editor");
@@ -880,13 +887,19 @@ export default function Metas() {
     const novoValor = isQual ? 0 : (parseFloat(editValues.atual) || 0);
     const novoObj = isQual ? 1 : (parseFloat(editValues.objetivo) || (editValues.unidade === "%" ? 100 : 0));
     const categoriaFinal = !editMetaToggles.categoria ? (meta?.categoria || "Geral") : editValues.categoria === "__outra__" ? editValues.categoriaCustom.trim() : editValues.categoria;
-    // Auto-calculate status
+    // Auto-calculate status with deadline-based predictive risk
     const pct = isQual ? 0 : (novoValor / novoObj) * 100;
     let newStatus: Meta["status"] = "no_prazo";
     if (!isQual) {
       if (pct >= 100) newStatus = "atingida";
       else if (pct < 30) newStatus = "em_risco";
       else if (pct < 60) newStatus = "atencao";
+    }
+    // Prazo vencido e meta nao atingida -> forcado em_risco (status preditivo)
+    if (newStatus !== "atingida" && editMetaToggles.prazo && editValues.prazo) {
+      const prazoDate = new Date(editValues.prazo);
+      prazoDate.setHours(23, 59, 59, 999);
+      if (prazoDate < new Date() && pct < 100) newStatus = "em_risco";
     }
 
     const { error } = await supabase.from("metas").update({
@@ -947,7 +960,7 @@ export default function Metas() {
   };
 
   const removeMeta = async (id: string) => {
-    if (!confirm("Excluir esta meta?")) return;
+    if (!(await confirm({ message: "Excluir esta meta? Esta ação não pode ser desfeita.", title: "Excluir Meta", confirmLabel: "Excluir", variant: "danger" }))) return;
     await supabase.from("metas").delete().eq("id", id);
     toast({ title: "Meta removida" });
   };
@@ -970,15 +983,23 @@ export default function Metas() {
   };
 
   const removeAcao = async (id: string) => {
-    if (!confirm("Excluir esta ação/contribuição?")) return;
+    if (!(await confirm({ message: "Excluir esta ação/contribuição?", title: "Excluir Ação", confirmLabel: "Excluir", variant: "danger" }))) return;
     await supabase.from("acoes_meta").delete().eq("id", id);
     toast({ title: "Ação removida" });
   };
 
   const removeCheckin = async (id: string) => {
-    if (!confirm("Excluir este check-in?")) return;
+    if (!(await confirm({ message: "Excluir este check-in?", title: "Excluir Check-in", confirmLabel: "Excluir", variant: "danger" }))) return;
     await supabase.from("meta_checkins").delete().eq("id", id);
     toast({ title: "Check-in removido" });
+  };
+
+  // Toggle conclusion for qualitative metas
+  const toggleQualMeta = async (meta: Meta) => {
+    const isAtingida = meta.status === 'atingida';
+    const novoStatus = isAtingida ? 'no_prazo' : 'atingida';
+    await supabase.from('metas').update({ status: novoStatus }).eq('id', meta.id);
+    toast({ title: isAtingida ? 'Meta desmarcada como concluída' : 'Meta qualitativa concluída!' });
   };
 
   const addCheckin = async () => {
@@ -1636,6 +1657,19 @@ export default function Metas() {
                         <div className="h-2 bg-secondary rounded-full overflow-hidden">
                           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: meta.cor }} />
                         </div>
+                      )}
+                      {qual && canEditMetas && (
+                        <button
+                          onClick={() => toggleQualMeta(meta)}
+                          className="mt-1 flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded transition-colors"
+                          style={meta.status === "atingida"
+                            ? { background: "hsl(152, 60%, 38%, 0.12)", color: "hsl(152, 60%, 38%)" }
+                            : { background: "hsl(var(--secondary))", color: "hsl(var(--muted-foreground))" }}
+                        >
+                          {meta.status === "atingida"
+                            ? <><CheckCircle2 className="w-3 h-3" /> Concluída — clique para desfazer</>
+                            : <><CircleDot className="w-3 h-3" /> Marcar como concluída</>}
+                        </button>
                       )}
                     </div>
                   );

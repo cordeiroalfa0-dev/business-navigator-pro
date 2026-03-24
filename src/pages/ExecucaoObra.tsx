@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useConfirm } from "@/hooks/useConfirm";
 import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
@@ -65,6 +66,9 @@ export default function ExecucaoObra() {
   const { userRole, user } = useAuth();
   const { toast }   = useToast();
   const canEdit     = userRole === "admin" || userRole === "master";
+  const confirm     = useConfirm();
+  const [recalculando, setRecalculando] = useState<string | null>(null);
+  const [progressoSugerido, setProgressoSugerido] = useState<Record<string, number>>({});
 
   // ── Estado principal ──────────────────────────────────────────────────
   const [obras,   setObras]   = useState<ObraExecucao[]>([]);
@@ -163,10 +167,41 @@ export default function ExecucaoObra() {
   };
 
   const excluir = async (id: string) => {
-    if (!confirm("Excluir esta obra?")) return;
+    if (!(await confirm({ message: "Excluir esta obra?", title: "Excluir Obra", confirmLabel: "Excluir", variant: "danger" }))) return;
     const { error } = await supabase.from("execucao_obras" as any).delete().eq("id", id);
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else toast({ title: "Obra removida" });
+  };
+
+  // ── Fase 4: Recalcular progresso pela % de metas atingidas ──────────
+  const recalcularPorMetas = async (obraId: string) => {
+    const metas = metasPorObra[obraId] ?? [];
+    if (metas.length === 0) {
+      toast({ title: "Sem metas vinculadas", description: "Crie metas para esta obra para usar o recálculo automático.", variant: "destructive" });
+      return;
+    }
+    const atingidas = metas.filter(m => m.status === "atingida").length;
+    const sugerido = Math.round((atingidas / metas.length) * 100);
+    setProgressoSugerido(prev => ({ ...prev, [obraId]: sugerido }));
+  };
+
+  const aplicarProgressoSugerido = async (obra: ObraExecucao) => {
+    const sugerido = progressoSugerido[obra.id];
+    if (sugerido === undefined) return;
+    setRecalculando(obra.id);
+    try {
+      const { error } = await supabase
+        .from("execucao_obras" as any)
+        .update({ progresso: sugerido })
+        .eq("id", obra.id);
+      if (error) throw error;
+      toast({ title: `Progresso atualizado para ${sugerido}%`, description: "Calculado com base nas metas atingidas." });
+      setProgressoSugerido(prev => { const n = { ...prev }; delete n[obra.id]; return n; });
+    } catch (err: any) {
+      toast({ title: "Erro ao atualizar", description: err?.message, variant: "destructive" });
+    } finally {
+      setRecalculando(null);
+    }
   };
 
   const abrirEdicao = (obra: ObraExecucao) => {
@@ -195,7 +230,7 @@ export default function ExecucaoObra() {
   };
 
   const excluirSugestao = async (id: string) => {
-    if (!confirm("Excluir esta sugestão?")) return;
+    if (!(await confirm({ message: "Excluir esta sugestão?", title: "Excluir Sugestão", confirmLabel: "Excluir", variant: "danger" }))) return;
     const { error } = await supabase.from("metas_sugestoes_fase" as any).delete().eq("id", id);
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else toast({ title: "Sugestão removida" });
@@ -270,7 +305,7 @@ export default function ExecucaoObra() {
   };
 
   const excluirMetaInline = async (id: string) => {
-    if (!confirm("Excluir esta meta da obra?")) return;
+    if (!(await confirm({ message: "Excluir esta meta da obra?", title: "Excluir Meta", confirmLabel: "Excluir", variant: "danger" }))) return;
     const { error } = await supabase.from("metas").delete().eq("id", id);
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else toast({ title: "Meta removida" });
@@ -474,9 +509,37 @@ export default function ExecucaoObra() {
                 {ETAPAS.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
-            <div>
+            <div className="sm:col-span-2 lg:col-span-1">
               <label className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1 block">Progresso (%): {form.progresso}%</label>
               <input type="range" min={0} max={100} value={form.progresso} onChange={e => setForm(f => ({ ...f, progresso: Number(e.target.value) }))} className="w-full" />
+              {/* Fase 4: Botão Recalcular pelo progresso das metas */}
+              {editing && (() => {
+                const metasObra = metasPorObra[editing.id] ?? [];
+                if (metasObra.length === 0) return null;
+                const sugerido = progressoSugerido[editing.id];
+                const atingidas = metasObra.filter(m => m.status === "atingida").length;
+                return (
+                  <div className="mt-2 space-y-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        recalcularPorMetas(editing.id);
+                        const s = Math.round((metasObra.filter(m => m.status === "atingida").length / metasObra.length) * 100);
+                        setForm(f => ({ ...f, progresso: s }));
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 h-7 rounded text-[11px] font-medium border border-dashed border-border text-muted-foreground hover:border-yellow-400 hover:text-foreground transition-colors"
+                    >
+                      <Target className="w-3 h-3" />
+                      Recalcular pelo progresso das metas ({atingidas}/{metasObra.length} atingidas)
+                    </button>
+                    {sugerido !== undefined && (
+                      <p className="text-[10px] text-center" style={{ color: "hsl(42, 65%, 56%)" }}>
+                        Sugestão: {sugerido}% — slider já atualizado. Clique em Salvar para aplicar.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             <div>
               <label className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1 block">Responsável</label>
@@ -592,6 +655,31 @@ export default function ExecucaoObra() {
                         </div>
                         <span className="text-[10px] font-bold w-8 text-right" style={{ color }}>{obra.progresso}%</span>
                       </div>
+                      {/* Fase 4: indicador de progresso sugerido pelas metas */}
+                      {metasObra.length > 0 && (() => {
+                        const atingidas = metasObra.filter(m => m.status === "atingida").length;
+                        const pctMetas = Math.round((atingidas / metasObra.length) * 100);
+                        const diff = pctMetas - obra.progresso;
+                        if (Math.abs(diff) < 2) return null;
+                        return (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <Target className="w-2.5 h-2.5 shrink-0" style={{ color: "hsl(271,60%,55%)" }} />
+                            <span className="text-[9px] text-muted-foreground">
+                              Metas sugerem <strong style={{ color: "hsl(271,60%,55%)" }}>{pctMetas}%</strong>
+                              {diff > 0 ? ` (+${diff}pp acima do registrado)` : ` (${Math.abs(diff)}pp abaixo do registrado)`}
+                              {canEdit && (
+                                <button
+                                  onClick={() => abrirEdicao(obra)}
+                                  className="ml-1 underline"
+                                  style={{ color: "hsl(42,65%,56%)" }}
+                                >
+                                  Editar e recalcular
+                                </button>
+                              )}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {canEdit && sugFase.length > 0 && (

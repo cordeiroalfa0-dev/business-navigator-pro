@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useConfirm } from "@/hooks/useConfirm";
 import { supabase } from "@/integrations/supabase/client";
 import { Meta, AcaoMeta, CheckIn } from "@/components/metas/types";
 import { useRealtimeTable } from "./useRealtimeTable";
@@ -9,6 +10,7 @@ import { calculateStatus } from "@/components/metas/utils";
 export function useMetas() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const [metas, setMetas] = useState<Meta[]>([]);
   const [acoes, setAcoes] = useState<AcaoMeta[]>([]);
@@ -71,7 +73,7 @@ export function useMetas() {
   }, [toast]);
 
   const removeMeta = useCallback(async (id: string) => {
-    if (!confirm("Excluir esta meta?")) return false;
+    if (!(await confirm({ message: "Excluir esta meta? Esta ação não pode ser desfeita.", title: "Excluir Meta", confirmLabel: "Excluir", variant: "danger" }))) return false;
     await supabase.from("metas").delete().eq("id", id);
     toast({ title: "Meta removida" });
     return true;
@@ -89,7 +91,7 @@ export function useMetas() {
   }, []);
 
   const removeAcao = useCallback(async (id: string) => {
-    if (!confirm("Excluir esta ação?")) return false;
+    if (!(await confirm({ message: "Excluir esta ação?", title: "Excluir Ação", confirmLabel: "Excluir", variant: "danger" }))) return false;
     await supabase.from("acoes_meta").delete().eq("id", id);
     toast({ title: "Ação removida" });
     return true;
@@ -111,7 +113,7 @@ export function useMetas() {
   }, [metas, user, profile, toast]);
 
   const removeCheckin = useCallback(async (id: string) => {
-    if (!confirm("Excluir este check-in?")) return false;
+    if (!(await confirm({ message: "Excluir este check-in?", title: "Excluir Check-in", confirmLabel: "Excluir", variant: "danger" }))) return false;
     await supabase.from("meta_checkins").delete().eq("id", id);
     toast({ title: "Check-in removido" });
     return true;
