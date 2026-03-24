@@ -218,7 +218,6 @@ function RelExecucao({data}:{data:any}){
   const metasObra=data.metasObra??[];
   const porEtapa=Object.entries(obras.reduce((acc:any,o:any)=>{acc[o.etapa_atual]=(acc[o.etapa_atual]||0)+1;return acc;},{})).map(([name,value])=>({name,value}));
   const media=obras.length>0?Math.round(obras.reduce((s:number,o:any)=>s+(o.progresso||0),0)/obras.length):0;
-  // Progresso sugerido por metas: % de metas atingidas por obra
   const progressoSugerido=(obraId:string)=>{
     const om=metasObra.filter((m:any)=>m.obra_id===obraId);
     if(om.length===0)return null;
@@ -616,14 +615,18 @@ export default function Relatorios(){
   const [dataInicio,setDataInicio] = useState("");
   const [dataFim,setDataFim]       = useState("");
   const [anoFiltro,setAnoFiltro]   = useState(String(new Date().getFullYear()));
-  const ANOS_DISPONIVEIS=["2024","2025","2026","2027"];
-  const [dadosMetas,setDadosMetas]         = useState<any>(null);
-  const [dadosExecucao,setDadosExecucao]   = useState<any>(null);
+
+  // Anos dinâmicos baseados no ano atual
+  const anoAtual = new Date().getFullYear();
+  const ANOS_DISPONIVEIS = Array.from({length:4},(_,i)=>String(anoAtual-1+i));
+
+  const [dadosMetas,setDadosMetas]           = useState<any>(null);
+  const [dadosExecucao,setDadosExecucao]     = useState<any>(null);
   const [dadosFinanceiro,setDadosFinanceiro] = useState<any>(null);
-  const [dadosObras,setDadosObras]         = useState<any>(null);
-  const [dadosAlmox,setDadosAlmox]         = useState<any>(null);
-  const [dadosDiario,setDadosDiario]       = useState<any>(null);
-  const [dadosRanking,setDadosRanking]     = useState<any>(null);
+  const [dadosObras,setDadosObras]           = useState<any>(null);
+  const [dadosAlmox,setDadosAlmox]           = useState<any>(null);
+  const [dadosDiario,setDadosDiario]         = useState<any>(null);
+  const [dadosRanking,setDadosRanking]       = useState<any>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
   const applyDate=(q:any,col="created_at")=>{
@@ -637,7 +640,6 @@ export default function Relatorios(){
       applyDate(supabase.from("metas").select("*").order("created_at",{ascending:false})),
       supabase.from("meta_checkins").select("*"),
     ]);
-    // Filtro de ano: se não há dataInicio/dataFim, filtra pelo ano global
     let metasFiltradas=metas??[];
     if(!dataInicio&&!dataFim&&anoFiltro){
       metasFiltradas=metasFiltradas.filter((m:any)=>{
@@ -724,35 +726,103 @@ export default function Relatorios(){
 
   useEffect(()=>{carregar();},[carregar]);
 
+  // ── EXPORTAR PDF COM TEXTOS LEGÍVEIS ────────────────────────────────────────
   const handleExportPDF=async()=>{
     if(!reportRef.current)return;
     setExporting(true);
     try{
-      const canvas=await html2canvas(reportRef.current,{scale:1.5,useCORS:true,backgroundColor:null});
+      const el=reportRef.current;
+
+      // 1. Salvar estilos originais do container
+      const prevElColor=el.style.color;
+      const prevElBg=el.style.background;
+
+      // 2. Forçar fundo branco no container
+      el.style.background="#ffffff";
+      el.style.color="#111111";
+
+      // 3. Coletar todos os elementos de texto e forçar cor escura nos "apagados"
+      const textEls=el.querySelectorAll<HTMLElement>("p,span,td,th,h1,h2,h3,h4,label,strong,small");
+      const prevColors:string[]=[];
+
+      textEls.forEach((t)=>{
+        prevColors.push(t.style.color);
+        const computed=window.getComputedStyle(t).color;
+        const rgb=computed.match(/\d+/g)?.map(Number)??[0,0,0];
+        // Calcula brilho percebido (fórmula W3C)
+        const brightness=(rgb[0]*299+rgb[1]*587+rgb[2]*114)/1000;
+        // Se o texto é muito claro (brilho > 155), escurece para o PDF
+        if(brightness>155){
+          t.style.color="#333333";
+        }
+      });
+
+      // 4. Forçar fundo branco em cards e tabelas
+      const cardEls=el.querySelectorAll<HTMLElement>(".erp-card,thead,th");
+      const prevCardBgs:string[]=[];
+      cardEls.forEach((c)=>{
+        prevCardBgs.push(c.style.background);
+        const computed=window.getComputedStyle(c).backgroundColor;
+        const rgb=computed.match(/\d+/g)?.map(Number)??[255,255,255];
+        const brightness=(rgb[0]*299+rgb[1]*587+rgb[2]*114)/1000;
+        // Se o fundo é escuro, clareia
+        if(brightness<100){
+          c.style.background="#f8f9fa";
+        }
+      });
+
+      // 5. Capturar com fundo branco
+      const canvas=await html2canvas(el,{
+        scale:1.5,
+        useCORS:true,
+        backgroundColor:"#ffffff",
+        logging:false,
+      });
+
+      // 6. Restaurar TODOS os estilos originais
+      el.style.color=prevElColor;
+      el.style.background=prevElBg;
+      textEls.forEach((t,i)=>{t.style.color=prevColors[i];});
+      cardEls.forEach((c,i)=>{c.style.background=prevCardBgs[i];});
+
+      // 7. Gerar PDF
       const imgData=canvas.toDataURL("image/png");
       const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
       const pageW=210,pageH=297;
       const imgH=(canvas.height*pageW)/canvas.width;
       let heightLeft=imgH,pos=0;
-      pdf.setFillColor(27,42,74);pdf.rect(0,0,pageW,12,"F");
-      pdf.setFontSize(9);pdf.setTextColor(255,255,255);
+
+      // Cabeçalho — fundo escuro com texto branco
+      pdf.setFillColor(27,42,74);
+      pdf.rect(0,0,pageW,12,"F");
+      pdf.setFontSize(9);
+      pdf.setTextColor(255,255,255);
       const lbl=MODULOS.find(m=>m.key===modulo)?.label??"Relatório";
       pdf.text(`San Remo ERP — ${lbl}`,8,8);
       pdf.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`,pageW-8,8,{align:"right"});
+
       pdf.addImage(imgData,"PNG",0,14,pageW,imgH);
       heightLeft-=pageH-14;
+
       while(heightLeft>0){
-        pos-=pageH;pdf.addPage();
-        pdf.setFillColor(27,42,74);pdf.rect(0,0,pageW,12,"F");
-        pdf.setTextColor(255,255,255);pdf.text(`San Remo ERP — ${lbl}`,8,8);
+        pos-=pageH;
+        pdf.addPage();
+        pdf.setFillColor(27,42,74);
+        pdf.rect(0,0,pageW,12,"F");
+        pdf.setTextColor(255,255,255);
+        pdf.text(`San Remo ERP — ${lbl}`,8,8);
         pdf.addImage(imgData,"PNG",0,pos+14,pageW,imgH);
         heightLeft-=pageH;
       }
+
       const slug=dataInicio?`_${dataInicio}`:"";
       pdf.save(`relatorio_${modulo}${slug}_${new Date().toISOString().slice(0,10)}.pdf`);
       toast({title:"PDF exportado com sucesso!"});
-    }catch{toast({title:"Erro ao exportar PDF",variant:"destructive"});}
-    finally{setExporting(false);}
+    }catch{
+      toast({title:"Erro ao exportar PDF",variant:"destructive"});
+    }finally{
+      setExporting(false);
+    }
   };
 
   const temDados=dadosMetas||dadosExecucao||dadosFinanceiro||dadosObras||dadosAlmox||dadosDiario||dadosRanking;
