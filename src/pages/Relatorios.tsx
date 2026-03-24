@@ -756,17 +756,19 @@ export default function Relatorios(){
         .erp-card, thead, th {
           background-color: #f8fafc !important;
         }
-        /* Texto principal — preto puro, fonte maior */
+        /* Texto principal — preto puro */
         p, td, h1, h2, h3, h4, strong {
           color: #000000 !important;
-          font-size: 13px !important;
         }
-        /* Texto secundário — cinza grafite, fonte maior */
-        span, th, label, small {
+        /* Texto secundário — cinza grafite */
+        th, label, small {
           color: #374151 !important;
+        }
+        /* Fonte maior apenas em tabelas (td, th) e parágrafos de listagem */
+        table td, table th {
           font-size: 13px !important;
         }
-        /* Preserva cores de status (verde, vermelho, amarelo, azul, roxo) */
+        /* Preserva cores de status inline (verde, vermelho, amarelo, azul, roxo, etc) */
         [style*="color: #16a34a"], [style*="color:#16a34a"] { color: #16a34a !important; }
         [style*="color: #dc2626"], [style*="color:#dc2626"] { color: #dc2626 !important; }
         [style*="color: #B8922A"], [style*="color:#B8922A"] { color: #B8922A !important; }
@@ -774,6 +776,9 @@ export default function Relatorios(){
         [style*="color: #7c3aed"], [style*="color:#7c3aed"] { color: #7c3aed !important; }
         [style*="color: #0891b2"], [style*="color:#0891b2"] { color: #0891b2 !important; }
         [style*="color: #ea580c"], [style*="color:#ea580c"] { color: #ea580c !important; }
+        /* Preserva tamanhos dos cards do Mapa de Saúde (texto com font-size inline) */
+        [style*="font-size"] { font-size: unset !important; }
+        .text-lg, .text-xl, .text-base { font-size: revert !important; }
       `;
       document.head.appendChild(styleOverride);
 
