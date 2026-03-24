@@ -740,43 +740,69 @@ export default function Relatorios(){
       styleOverride.textContent=`
         :root, [data-theme], .dark, [class*="dark"] {
           --background: 0 0% 100% !important;
-          --foreground: 222 47% 11% !important;
-          --muted-foreground: 215 16% 35% !important;
+          --foreground: 0 0% 0% !important;
+          --muted-foreground: 220 9% 23% !important;
           --card: 0 0% 100% !important;
-          --card-foreground: 222 47% 11% !important;
-          --border: 214 32% 80% !important;
+          --card-foreground: 0 0% 0% !important;
+          --border: 214 32% 75% !important;
           --secondary: 210 40% 94% !important;
-          --secondary-foreground: 222 47% 11% !important;
+          --secondary-foreground: 0 0% 0% !important;
           --muted: 210 40% 94% !important;
           --accent: 210 40% 94% !important;
           --popover: 0 0% 100% !important;
-          --popover-foreground: 222 47% 11% !important;
+          --popover-foreground: 0 0% 0% !important;
         }
-        /* Força fundo branco nos cards e tabelas */
+        /* Fundo branco nos cards e tabelas */
         .erp-card, thead, th {
           background-color: #f8fafc !important;
-          color: #1e293b !important;
         }
-        /* Garante que texto genérico fique escuro */
-        p, span, td, th, h1, h2, h3, h4, label, strong, small {
-          color: inherit;
+        /* Texto principal — preto puro, fonte maior */
+        p, td, h1, h2, h3, h4, strong {
+          color: #000000 !important;
+          font-size: 13px !important;
         }
+        /* Texto secundário — cinza grafite, fonte maior */
+        span, th, label, small {
+          color: #374151 !important;
+          font-size: 13px !important;
+        }
+        /* Preserva cores de status (verde, vermelho, amarelo, azul, roxo) */
+        [style*="color: #16a34a"], [style*="color:#16a34a"] { color: #16a34a !important; }
+        [style*="color: #dc2626"], [style*="color:#dc2626"] { color: #dc2626 !important; }
+        [style*="color: #B8922A"], [style*="color:#B8922A"] { color: #B8922A !important; }
+        [style*="color: #2563eb"], [style*="color:#2563eb"] { color: #2563eb !important; }
+        [style*="color: #7c3aed"], [style*="color:#7c3aed"] { color: #7c3aed !important; }
+        [style*="color: #0891b2"], [style*="color:#0891b2"] { color: #0891b2 !important; }
+        [style*="color: #ea580c"], [style*="color:#ea580c"] { color: #ea580c !important; }
       `;
       document.head.appendChild(styleOverride);
 
-      // 2. Aguarda o browser repintar com os novos estilos
-      await new Promise(resolve=>setTimeout(resolve,120));
+      // 2. Desativa overflow-x em todos os elementos com scroll horizontal
+      //    para que html2canvas capture o conteúdo completo sem cortes
+      const scrollEls=el.querySelectorAll<HTMLElement>("[class*='overflow']");
+      const prevOverflows:string[]=[];
+      scrollEls.forEach((s)=>{
+        prevOverflows.push(s.style.overflow);
+        s.style.overflow="visible";
+      });
 
-      // 3. Captura com fundo branco
+      // 3. Aguarda o browser repintar com os novos estilos
+      await new Promise(resolve=>setTimeout(resolve,150));
+
+      // 4. Captura com fundo branco e largura total do conteúdo
       const canvas=await html2canvas(el,{
         scale:1.5,
         useCORS:true,
         backgroundColor:"#ffffff",
         logging:false,
+        width:el.scrollWidth,
+        height:el.scrollHeight,
+        windowWidth:el.scrollWidth,
       });
 
-      // 4. Remove o style temporário — restaura tema original
+      // 5. Remove o style temporário e restaura overflow — volta tema original
       document.head.removeChild(styleOverride);
+      scrollEls.forEach((s,i)=>{s.style.overflow=prevOverflows[i];});
 
       // 7. Gerar PDF
       const imgData=canvas.toDataURL("image/png");
@@ -815,6 +841,11 @@ export default function Relatorios(){
       // Garante remoção do style temporário mesmo em caso de erro
       const s=document.getElementById("pdf-export-override");
       if(s)document.head.removeChild(s);
+      // Restaura overflow de todos os elementos que possam ter sido alterados
+      if(reportRef.current){
+        reportRef.current.querySelectorAll<HTMLElement>("[class*='overflow']")
+          .forEach((s)=>{s.style.overflow="";});
+      }
       toast({title:"Erro ao exportar PDF",variant:"destructive"});
     }finally{
       setExporting(false);
