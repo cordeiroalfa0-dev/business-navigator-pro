@@ -733,45 +733,41 @@ export default function Relatorios(){
     try{
       const el=reportRef.current;
 
-      // 1. Salvar estilos originais do container
-      const prevElColor=el.style.color;
-      const prevElBg=el.style.background;
-
-      // 2. Forçar fundo branco no container
-      el.style.background="#ffffff";
-      el.style.color="#111111";
-
-      // 3. Coletar todos os elementos de texto e forçar cor escura nos "apagados"
-      const textEls=el.querySelectorAll<HTMLElement>("p,span,td,th,h1,h2,h3,h4,label,strong,small");
-      const prevColors:string[]=[];
-
-      textEls.forEach((t)=>{
-        prevColors.push(t.style.color);
-        const computed=window.getComputedStyle(t).color;
-        const rgb=computed.match(/\d+/g)?.map(Number)??[0,0,0];
-        // Calcula brilho percebido (fórmula W3C)
-        const brightness=(rgb[0]*299+rgb[1]*587+rgb[2]*114)/1000;
-        // Se o texto é muito claro (brilho > 155), escurece para o PDF
-        if(brightness>155){
-          t.style.color="#333333";
+      // 1. Injeta <style> temporário que sobrescreve as CSS variables do tema escuro
+      //    para valores claros (tema light), garantindo texto legível no PDF.
+      const styleOverride=document.createElement("style");
+      styleOverride.id="pdf-export-override";
+      styleOverride.textContent=`
+        :root, [data-theme], .dark, [class*="dark"] {
+          --background: 0 0% 100% !important;
+          --foreground: 222 47% 11% !important;
+          --muted-foreground: 215 16% 35% !important;
+          --card: 0 0% 100% !important;
+          --card-foreground: 222 47% 11% !important;
+          --border: 214 32% 80% !important;
+          --secondary: 210 40% 94% !important;
+          --secondary-foreground: 222 47% 11% !important;
+          --muted: 210 40% 94% !important;
+          --accent: 210 40% 94% !important;
+          --popover: 0 0% 100% !important;
+          --popover-foreground: 222 47% 11% !important;
         }
-      });
-
-      // 4. Forçar fundo branco em cards e tabelas
-      const cardEls=el.querySelectorAll<HTMLElement>(".erp-card,thead,th");
-      const prevCardBgs:string[]=[];
-      cardEls.forEach((c)=>{
-        prevCardBgs.push(c.style.background);
-        const computed=window.getComputedStyle(c).backgroundColor;
-        const rgb=computed.match(/\d+/g)?.map(Number)??[255,255,255];
-        const brightness=(rgb[0]*299+rgb[1]*587+rgb[2]*114)/1000;
-        // Se o fundo é escuro, clareia
-        if(brightness<100){
-          c.style.background="#f8f9fa";
+        /* Força fundo branco nos cards e tabelas */
+        .erp-card, thead, th {
+          background-color: #f8fafc !important;
+          color: #1e293b !important;
         }
-      });
+        /* Garante que texto genérico fique escuro */
+        p, span, td, th, h1, h2, h3, h4, label, strong, small {
+          color: inherit;
+        }
+      `;
+      document.head.appendChild(styleOverride);
 
-      // 5. Capturar com fundo branco
+      // 2. Aguarda o browser repintar com os novos estilos
+      await new Promise(resolve=>setTimeout(resolve,120));
+
+      // 3. Captura com fundo branco
       const canvas=await html2canvas(el,{
         scale:1.5,
         useCORS:true,
@@ -779,11 +775,8 @@ export default function Relatorios(){
         logging:false,
       });
 
-      // 6. Restaurar TODOS os estilos originais
-      el.style.color=prevElColor;
-      el.style.background=prevElBg;
-      textEls.forEach((t,i)=>{t.style.color=prevColors[i];});
-      cardEls.forEach((c,i)=>{c.style.background=prevCardBgs[i];});
+      // 4. Remove o style temporário — restaura tema original
+      document.head.removeChild(styleOverride);
 
       // 7. Gerar PDF
       const imgData=canvas.toDataURL("image/png");
@@ -819,6 +812,9 @@ export default function Relatorios(){
       pdf.save(`relatorio_${modulo}${slug}_${new Date().toISOString().slice(0,10)}.pdf`);
       toast({title:"PDF exportado com sucesso!"});
     }catch{
+      // Garante remoção do style temporário mesmo em caso de erro
+      const s=document.getElementById("pdf-export-override");
+      if(s)document.head.removeChild(s);
       toast({title:"Erro ao exportar PDF",variant:"destructive"});
     }finally{
       setExporting(false);
