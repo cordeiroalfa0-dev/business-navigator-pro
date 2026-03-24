@@ -783,12 +783,13 @@ export default function Relatorios(){
         }
       });
 
-      // Desativa overflow para capturar conteúdo completo sem cortes
-      const scrollEls=el.querySelectorAll<HTMLElement>("[class*='overflow']");
+      // Desativa overflow APENAS nas divs de scroll horizontal de tabelas
+      // (não mexe em overflow-hidden das barras de progresso)
+      const scrollEls=el.querySelectorAll<HTMLElement>(".overflow-x-auto");
       const prevOverflows:string[]=[];
       scrollEls.forEach((s)=>{
-        prevOverflows.push(s.style.overflow);
-        s.style.overflow="visible";
+        prevOverflows.push(s.style.overflowX);
+        s.style.overflowX="visible";
       });
 
       // Aguarda o browser repintar
@@ -811,7 +812,7 @@ export default function Relatorios(){
         node.style.background=background;
         node.style.fontSize=fontSize;
       });
-      scrollEls.forEach((s,i)=>{s.style.overflow=prevOverflows[i];});
+      scrollEls.forEach((s,i)=>{s.style.overflowX=prevOverflows[i];});
 
       // 7. Gerar PDF
       const imgData=canvas.toDataURL("image/png");
@@ -853,7 +854,7 @@ export default function Relatorios(){
           node.style.color="";
           node.style.background="";
           node.style.fontSize="";
-          node.style.overflow="";
+          node.style.overflowX="";
         });
       }
       toast({title:"Erro ao exportar PDF",variant:"destructive"});
