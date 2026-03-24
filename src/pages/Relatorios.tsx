@@ -727,63 +727,63 @@ export default function Relatorios(){
   useEffect(()=>{carregar();},[carregar]);
 
   // ── EXPORTAR PDF COM TEXTOS LEGÍVEIS ────────────────────────────────────────
+  // Cores de status que devem ser preservadas no PDF
+  const STATUS_COLORS=new Set(["#16a34a","#dc2626","#B8922A","#2563eb","#7c3aed","#0891b2","#ea580c","#16a34a".toLowerCase()]);
+
   const handleExportPDF=async()=>{
     if(!reportRef.current)return;
     setExporting(true);
     try{
       const el=reportRef.current;
 
-      // 1. Injeta <style> temporário que sobrescreve as CSS variables do tema escuro
-      //    para valores claros (tema light), garantindo texto legível no PDF.
-      const styleOverride=document.createElement("style");
-      styleOverride.id="pdf-export-override";
-      styleOverride.textContent=`
-        :root, [data-theme], .dark, [class*="dark"] {
-          --background: 0 0% 100% !important;
-          --foreground: 0 0% 0% !important;
-          --muted-foreground: 220 9% 23% !important;
-          --card: 0 0% 100% !important;
-          --card-foreground: 0 0% 0% !important;
-          --border: 214 32% 75% !important;
-          --secondary: 210 40% 94% !important;
-          --secondary-foreground: 0 0% 0% !important;
-          --muted: 210 40% 94% !important;
-          --accent: 210 40% 94% !important;
-          --popover: 0 0% 100% !important;
-          --popover-foreground: 0 0% 0% !important;
-        }
-        /* Fundo branco nos cards e tabelas */
-        .erp-card, thead, th {
-          background-color: #f8fafc !important;
-        }
-        /* Texto principal — preto puro */
-        p, td, h1, h2, h3, h4, strong {
-          color: #000000 !important;
-        }
-        /* Texto secundário — cinza grafite */
-        th, label, small {
-          color: #374151 !important;
-        }
-        /* Fonte maior apenas em tabelas (td, th) e parágrafos de listagem */
-        table td, table th {
-          font-size: 13px !important;
-        }
-        /* Preserva cores de status inline (verde, vermelho, amarelo, azul, roxo, etc) */
-        [style*="color: #16a34a"], [style*="color:#16a34a"] { color: #16a34a !important; }
-        [style*="color: #dc2626"], [style*="color:#dc2626"] { color: #dc2626 !important; }
-        [style*="color: #B8922A"], [style*="color:#B8922A"] { color: #B8922A !important; }
-        [style*="color: #2563eb"], [style*="color:#2563eb"] { color: #2563eb !important; }
-        [style*="color: #7c3aed"], [style*="color:#7c3aed"] { color: #7c3aed !important; }
-        [style*="color: #0891b2"], [style*="color:#0891b2"] { color: #0891b2 !important; }
-        [style*="color: #ea580c"], [style*="color:#ea580c"] { color: #ea580c !important; }
-        /* Preserva tamanhos dos cards do Mapa de Saúde (texto com font-size inline) */
-        [style*="font-size"] { font-size: unset !important; }
-        .text-lg, .text-xl, .text-base { font-size: revert !important; }
-      `;
-      document.head.appendChild(styleOverride);
+      // Guarda todos os estilos originais que vamos modificar
+      type SavedStyle={el:HTMLElement;color:string;background:string;fontSize:string};
+      const saved:SavedStyle[]=[];
 
-      // 2. Desativa overflow-x em todos os elementos com scroll horizontal
-      //    para que html2canvas capture o conteúdo completo sem cortes
+      // Percorre TODOS os elementos e força cores escuras diretamente no style inline
+      // (inline style tem especificidade máxima — supera qualquer CSS variable ou classe)
+      el.querySelectorAll<HTMLElement>("*").forEach((node)=>{
+        const computed=window.getComputedStyle(node);
+        const tag=node.tagName.toLowerCase();
+        const inlineColor=(node.style.color||"").toLowerCase().replace(/\s/g,"");
+
+        // Verifica se a cor inline é uma cor de status — se sim, preserva
+        const isStatusColor=STATUS_COLORS.has(inlineColor)||
+          [...STATUS_COLORS].some(c=>inlineColor.includes(c.toLowerCase()));
+
+        // Calcula brilho do texto para decidir se escurece
+        const rgb=computed.color.match(/\d+/g)?.map(Number)??[0,0,0];
+        const brightness=(rgb[0]*299+rgb[1]*587+rgb[2]*114)/1000;
+
+        // Calcula brilho do fundo para decidir se clareia
+        const bgRgb=computed.backgroundColor.match(/\d+/g)?.map(Number)??[255,255,255];
+        const bgBrightness=(bgRgb[0]*299+bgRgb[1]*587+bgRgb[2]*114)/1000;
+
+        saved.push({el:node,color:node.style.color,background:node.style.background,fontSize:node.style.fontSize});
+
+        // Escurece texto muito claro (exceto cores de status)
+        if(!isStatusColor && brightness>150){
+          // Texto de tabela (td, th) e parágrafos → preto
+          if(["td","p","h1","h2","h3","h4","strong","b"].includes(tag)){
+            node.style.color="#000000";
+          } else {
+            // Labels, spans, small → cinza grafite escuro
+            node.style.color="#374151";
+          }
+        }
+
+        // Clareia fundo muito escuro
+        if(bgBrightness<80 && bgBrightness>0){
+          node.style.background="#f8fafc";
+        }
+
+        // Fonte maior em células de tabela
+        if(["td","th"].includes(tag)){
+          node.style.fontSize="13px";
+        }
+      });
+
+      // Desativa overflow para capturar conteúdo completo sem cortes
       const scrollEls=el.querySelectorAll<HTMLElement>("[class*='overflow']");
       const prevOverflows:string[]=[];
       scrollEls.forEach((s)=>{
@@ -791,10 +791,10 @@ export default function Relatorios(){
         s.style.overflow="visible";
       });
 
-      // 3. Aguarda o browser repintar com os novos estilos
-      await new Promise(resolve=>setTimeout(resolve,150));
+      // Aguarda o browser repintar
+      await new Promise(resolve=>setTimeout(resolve,80));
 
-      // 4. Captura com fundo branco e largura total do conteúdo
+      // Captura com fundo branco e largura total
       const canvas=await html2canvas(el,{
         scale:1.5,
         useCORS:true,
@@ -805,8 +805,12 @@ export default function Relatorios(){
         windowWidth:el.scrollWidth,
       });
 
-      // 5. Remove o style temporário e restaura overflow — volta tema original
-      document.head.removeChild(styleOverride);
+      // Restaura TODOS os estilos originais
+      saved.forEach(({el:node,color,background,fontSize})=>{
+        node.style.color=color;
+        node.style.background=background;
+        node.style.fontSize=fontSize;
+      });
       scrollEls.forEach((s,i)=>{s.style.overflow=prevOverflows[i];});
 
       // 7. Gerar PDF
@@ -843,13 +847,14 @@ export default function Relatorios(){
       pdf.save(`relatorio_${modulo}${slug}_${new Date().toISOString().slice(0,10)}.pdf`);
       toast({title:"PDF exportado com sucesso!"});
     }catch{
-      // Garante remoção do style temporário mesmo em caso de erro
-      const s=document.getElementById("pdf-export-override");
-      if(s)document.head.removeChild(s);
-      // Restaura overflow de todos os elementos que possam ter sido alterados
+      // Em caso de erro, limpa todos os estilos inline que possam ter sido aplicados
       if(reportRef.current){
-        reportRef.current.querySelectorAll<HTMLElement>("[class*='overflow']")
-          .forEach((s)=>{s.style.overflow="";});
+        reportRef.current.querySelectorAll<HTMLElement>("*").forEach((node)=>{
+          node.style.color="";
+          node.style.background="";
+          node.style.fontSize="";
+          node.style.overflow="";
+        });
       }
       toast({title:"Erro ao exportar PDF",variant:"destructive"});
     }finally{
